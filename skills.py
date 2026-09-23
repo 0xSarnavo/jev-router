@@ -66,8 +66,9 @@ def questions(cfg, ctx):
 
 
 def route(cfg, answers, session, ctx):
-    picks = [n for n in cfg["gated"] if answers[f"gate:{n}"]["noul"] >= cfg["gate_threshold"]]
-    sk = answers["skill"]
+    picks = [n for n in cfg["gated"]
+             if answers.get(f"gate:{n}", {}).get("noul", 0) >= cfg["gate_threshold"]]
+    sk = answers.get("skill") or {"choice": "none", "probabilities": {}}
     p = sk["probabilities"].get(sk["choice"], 0)
     if sk["choice"] != "none" and p >= cfg["pick_threshold"]:
         picks.append(sk["choice"])

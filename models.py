@@ -69,7 +69,13 @@ def claude_model(data):
 
 
 def harness_of(data):
+    if data.get("harness") == "opencode":
+        return "opencode"
     return "codex" if "/.codex/" in (data.get("transcript_path") or "") else "claude"
+
+
+def meta_backend(ctx):
+    return ctx.get("backend")
 
 
 def label(model, effort):
@@ -83,10 +89,23 @@ def route(cfg, answers, session, ctx):
     model, effort = pick(cfg, harness, name)
     detail = {"tier": name, "score": score, "current": current, "pick": model, "effort": effort}
     mode = session.get("model_mode", cfg["mode"])
+    if meta_backend(ctx) == "laya" and mode in ("ask", "auto"):
+        mode = "suggest"
+    try:
+        long_session = Path(data.get("transcript_path") or "").stat().st_size > cfg["quiet_after_kb"] * 1024
+    except OSError:
+        long_session = False
+    if harness == "opencode":
+        if mode in ("ask", "auto") and current and model != current:
+            detail["switch"] = model
+        return "", detail
     cur_r, new_r = rank(cfg, harness, current), rank(cfg, harness, model)
     if mode == "off" or cur_r is None or new_r is None or cur_r == new_r:
         return "", detail
     rec = label(model, effort)
+    if long_session and new_r < cur_r:
+        detail["quiet"] = "long session"
+        return "", detail
     if new_r > cur_r:
         return (f"Model: Jev rates this {name} (effort {score}/4). {rec} may do better than "
                 f"{current}. Say so in one line at the top of your reply."), detail

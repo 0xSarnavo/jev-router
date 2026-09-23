@@ -10,6 +10,8 @@ def questions(cfg, ctx):
 def route(cfg, answers, session, ctx):
     use, skip = [], []
     for g in cfg["groups"]:
+        if f"tool:{g}" not in answers:
+            continue
         p = answers[f"tool:{g}"]["noul"]
         if p >= cfg["use_threshold"]:
             use.append(g)

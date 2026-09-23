@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.environ["JEV_ROUTER_STATE"] = tempfile.mkdtemp()
 
+import context  # noqa: E402
 import jev  # noqa: E402
 import mcps  # noqa: E402
 import models  # noqa: E402
@@ -51,6 +52,8 @@ class Base(unittest.TestCase):
         self.cm = mock.patch.object(models, "claude_model", return_value=None)
         self.cm.start()
         self.cfg = router.load_config()
+        self.cfg["backend"] = "jev"
+        self.cfg["context"]["enabled"] = False
 
     def tearDown(self):
         self.patch.stop()
@@ -175,6 +178,48 @@ class TestModels(Base):
         with mock.patch.object(models, "claude_model", return_value="claude-haiku-4-5"):
             line, _ = models.route(self.cfg["models"], fake_answers(self.cfg, effort=3.8), {}, self.ctx())
         self.assertIn("may do better", line)
+
+
+class TestBackend(Base):
+    def test_auto_falls_back_to_laya_without_big_choices(self):
+        cfg = dict(self.cfg, backend="auto")
+        q = {"big": {"type": "choice", "criteria": {str(i): None for i in range(30)}, "instructions": "x"},
+             "yes": {"type": "noul", "instructions": "y"}}
+        calls = []
+
+        def fake(key, state, questions, model, timeout, url=jev.URL):
+            calls.append(url)
+            if url == jev.URL:
+                raise jev.JevError("down")
+            return {k: noul(0.9) for k in questions}, {"tokens": 1, "latency_ms": 1}
+
+        with mock.patch.object(jev, "load_key", return_value="k" * 20), mock.patch.object(jev, "evaluate", fake):
+            answers, meta = jev.ask(cfg, {}, q)
+        self.assertEqual(meta["backend"], "laya")
+        self.assertEqual(list(answers), ["yes"])
+        self.assertEqual(calls[-1], cfg["laya"]["url"])
+
+
+class TestContext(Base):
+    def test_capture_then_hand_over_to_other_session(self):
+        cfg = self.cfg["context"]
+        repo = tempfile.mkdtemp()
+        with mock.patch.object(context, "changed_files", return_value=["src/a.ts"]):
+            context.capture(cfg, {"session_id": "claude-1", "cwd": repo, "transcript_path": "/t.jsonl",
+                                  "last_assistant_message": "Done.\nHandoff: fixed header | next: add tests"},
+                            {"pending_prompt": "fix the header"}, "claude", router.STATE_DIR)
+        s = {}
+        ctx = {"state_dir": router.STATE_DIR, "data": {"session_id": "codex-2", "cwd": repo}, "session": s}
+        q = context.questions(cfg, ctx)
+        self.assertEqual(len(q), 1)
+        answers = {k: noul(0.9) for k in q}
+        line, d = context.route(cfg, answers, s, ctx)
+        self.assertIn("fixed header | next: add tests", line)
+        self.assertIn("src/a.ts", line)
+        self.assertIn("/t.jsonl", line)
+        self.assertEqual(context.questions(cfg, ctx), {})
+        same = {"state_dir": router.STATE_DIR, "data": {"session_id": "claude-1", "cwd": repo}, "session": {}}
+        self.assertEqual(context.questions(cfg, same), {})
 
 
 class TestSessionStart(Base):

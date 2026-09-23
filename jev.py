@@ -26,10 +26,12 @@ def load_key(env_file=None):
     return key
 
 
-def evaluate(key, state, questions, model="jev-latest", timeout=6):
+def evaluate(key, state, questions, model="jev-latest", timeout=6, url=URL):
     body = json.dumps({"state": state, "model": model, "questions": questions}).encode()
-    req = urllib.request.Request(URL, body, {
-        "Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    req = urllib.request.Request(url, body, headers)
     t0 = time.time()
     for attempt in range(2):
         try:
@@ -40,7 +42,7 @@ def evaluate(key, state, questions, model="jev-latest", timeout=6):
             if e.code in RETRY_STATUSES and attempt == 0:
                 time.sleep(0.5)
                 continue
-            raise JevError(f"TypeSafe returned HTTP {e.code}") from None
+            raise JevError(f"{url.split('/')[2]} returned HTTP {e.code}") from None
         except Exception as e:
             raise JevError(f"TypeSafe request failed ({type(e).__name__})") from None
     answers = out.get("answers") or {}
@@ -53,3 +55,27 @@ def evaluate(key, state, questions, model="jev-latest", timeout=6):
         "tokens": int(usage.get("input_tokens", 0)) + int(usage.get("output_tokens", 0)),
         "latency_ms": round((time.time() - t0) * 1000),
     }
+
+
+def laya_fits(question, max_options):
+    """Laya degrades past about 20 choice options, so bigger choices stay on Jev."""
+    return question["type"] != "choice" or len(question["criteria"]) <= max_options
+
+
+def ask(cfg, state, questions, backend=None):
+    """Send questions to the configured backend: jev, laya, or auto (Jev, then Laya on failure)."""
+    backend = backend or cfg["backend"]
+    laya = cfg["laya"]
+    if backend in ("jev", "auto"):
+        try:
+            answers, meta = evaluate(load_key(cfg.get("env_file")), state, questions,
+                                     cfg["model"], cfg["timeout_s"])
+            return answers, {**meta, "backend": "jev"}
+        except JevError:
+            if backend == "jev":
+                raise
+    small = {k: q for k, q in questions.items() if laya_fits(q, laya["max_options"])}
+    if not small:
+        raise JevError("no questions fit Laya")
+    answers, meta = evaluate(None, state, small, laya["model"], laya["timeout_s"], laya["url"])
+    return answers, {**meta, "backend": "laya"}

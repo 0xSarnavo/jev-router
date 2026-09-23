@@ -140,7 +140,8 @@
     "claude_subagent": {
       "small": "haiku",
       "standard": "sonnet"
-    }
+    },
+    "quiet_after_kb": 400
   },
   "launcher": {
     "notes": {
@@ -148,5 +149,21 @@
       "codex": "Codex with GPT-6 models. Cheapest for questions and small edits, strong at math, science and computer use, good value for routine features.",
       "opencode": "OpenCode with free models only. Use when the task is simple and cost must be zero."
     }
+  },
+  "backend": "auto",
+  "laya": {
+    "url": "http://127.0.0.1:8321/v1/systemone",
+    "model": "laya-latest",
+    "timeout_s": 4,
+    "max_options": 20
+  },
+  "context": {
+    "enabled": true,
+    "threshold": 0.6,
+    "max_age_h": 48,
+    "scan": 12,
+    "keep": 200,
+    "budget_chars": 1800,
+    "reply_chars": 600
   }
 }
