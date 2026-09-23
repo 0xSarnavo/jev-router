@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Claude Code hook: route each prompt to skills and tools with Jev.
+"""Claude Code hook entry point. Runs the enabled routers in one Jev request.
 
-  router.py session-start   SessionStart hook
-  router.py prompt          UserPromptSubmit hook
+  router.py session-start      SessionStart hook
+  router.py always-on <skill>  SessionStart hook, one per always-on skill
+  router.py prompt             UserPromptSubmit hook
 """
 import hashlib
 import json
@@ -14,19 +15,25 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import catalog  # noqa: E402
 import jev  # noqa: E402
+import skills  # noqa: E402
+import tools  # noqa: E402
 
 STATE_DIR = Path(os.environ.get("JEV_ROUTER_STATE", Path.home() / ".cache" / "jev-router"))
-MODES = ("all", "smart", "ask", "off")
-CMD_RE = re.compile(r"^\s*jev\s+(?:mode\s+)?(all|smart|ask|off|status)\s*$", re.I)
+ROUTERS = {"skills": skills, "tools": tools}
+MODE_RE = re.compile(r"^\s*jev\s+(?:mode\s+)?(all|smart|ask|off|status)\s*$", re.I)
+TOGGLE_RE = re.compile(r"^\s*jev\s+(skills|tools)\s+(on|off)\s*$", re.I)
 
 
 def load_config():
     cfg = json.loads((HERE / "config.json").read_text())
     local = HERE / "config.local.json"
     if local.exists():
-        cfg.update(json.loads(local.read_text()))
+        for k, v in json.loads(local.read_text()).items():
+            if isinstance(v, dict) and isinstance(cfg.get(k), dict):
+                cfg[k].update(v)
+            else:
+                cfg[k] = v
     return cfg
 
 
@@ -36,10 +43,12 @@ def _session_file(sid):
 
 
 def load_session(sid, cfg):
+    s = {"mode": cfg["default_mode"], "off": [], "loaded": [], "fallback_shown": False}
     try:
-        return json.loads(_session_file(sid).read_text())
+        s.update(json.loads(_session_file(sid).read_text()))
     except (OSError, ValueError):
-        return {"mode": cfg["default_mode"], "loaded": [], "fallback_shown": False}
+        pass
+    return s
 
 
 def save_session(sid, s):
@@ -55,9 +64,8 @@ def log(entry):
         f.write(json.dumps(entry) + "\n")
 
 
-def skill_body(path):
-    text = Path(path).read_text(errors="ignore")
-    return re.sub(r"\A---\s*\n.*?\n---\s*\n", "", text, count=1, flags=re.S).strip()
+def enabled(cfg, s):
+    return [n for n in ROUTERS if cfg[n]["enabled"] and n not in s["off"]]
 
 
 def should_route(prompt, mode, cfg):
@@ -75,126 +83,82 @@ def should_route(prompt, mode, cfg):
     return True
 
 
-def build_questions(cfg, cat):
-    skip = set(cfg["always_on"]) | set(cfg["gated_skills"]) | set(cfg["never_route"])
-    options = {s["name"]: s["desc"] or None for s in cat["skills"] if s["name"] not in skip}
-    options["none"] = "No specialised skill fits. The assistant can answer or do this directly."
-    q = {
-        "skill": {
-            "type": "choice",
-            "instructions": "Which specialised skill, if any, clearly matches the request in "
-                            "`prompt`? Choose none unless one directly fits the task.",
-            "criteria": options,
-        }
-    }
-    for name, question in cfg["gated_skills"].items():
-        q[f"gate:{name}"] = {"type": "noul", "instructions": question}
-    for group, desc in cfg["tool_groups"].items():
-        q[f"tool:{group}"] = {
-            "type": "noul",
-            "instructions": f"Will handling the request in `prompt` need {desc}?",
-        }
-    return q
-
-
-def decide(answers, cfg, loaded):
-    t = cfg["thresholds"]
-    picks = [name for name in cfg["gated_skills"]
-             if answers[f"gate:{name}"]["noul"] >= t["gate"]]
-    sk = answers["skill"]
-    if sk["choice"] != "none" and sk["probabilities"].get(sk["choice"], 0) >= t["skill"]:
-        picks.append(sk["choice"])
-    new = [p for p in picks if p not in loaded]
-    use, skip = [], []
-    for group in cfg["tool_groups"]:
-        p = answers[f"tool:{group}"]["noul"]
-        if p >= t["tool_use"]:
-            use.append(group)
-        elif p <= t["tool_skip"]:
-            skip.append(group)
-    return new, [p for p in picks if p in loaded], use, skip
-
-
-def render(new, active, use, skip, paths):
-    lines = []
-    for name in new:
-        lines.append(f"Load skill `{name}`: read {paths[name]} and follow it for this task.")
-    if active:
-        lines.append("Already active this session: " + ", ".join(active) + ".")
-    if use:
-        lines.append("Tools likely needed: " + ", ".join(use) + ".")
-    if skip:
-        lines.append("Tools not needed, skip them: " + ", ".join(skip) + ".")
-    if not new and not active:
-        lines.append("No specialised skill needed.")
-    return "[jev-router] " + " ".join(lines)
-
-
 def emit(event, context):
     print(json.dumps({"hookSpecificOutput": {"hookEventName": event,
                                              "additionalContext": context}}))
 
 
+def block(msg):
+    print(json.dumps({"decision": "block", "reason": msg}))
+
+
+def status(cfg, s):
+    return (f"jev-router mode: {s['mode']}. Routers on: {', '.join(enabled(cfg, s)) or 'none'}. "
+            f"Skills loaded: {', '.join(s['loaded']) or 'none'}.")
+
+
 def on_session_start(data, cfg):
-    cat = catalog.load(STATE_DIR)
     sid = data.get("session_id")
     s = load_session(sid, cfg)
     s["loaded"], s["fallback_shown"] = [], False
     save_session(sid, s)
-    emit("SessionStart", f"[jev-router] Routing mode: {s['mode']}. Skills load on demand; "
-         "follow [jev-router] notes on each prompt. The user switches mode with "
-         "`jev all|smart|ask|off`.")
+    if cfg["skills"]["enabled"]:
+        skills.load_catalog(STATE_DIR)
+    emit("SessionStart", f"[jev-router] Mode: {s['mode']}. Routers: {', '.join(enabled(cfg, s))}. "
+         "Follow [jev-router] notes on each prompt. The user controls routing with "
+         "`jev all|smart|ask|off` and `jev skills|tools on|off`.")
 
 
 def on_always_on(name, cfg):
     """One hook per skill: Claude Code truncates a single large hook output."""
-    path = {x["name"]: x["path"] for x in catalog.load(STATE_DIR)["skills"]}.get(name)
-    if path and name in cfg["always_on"]:
-        emit("SessionStart", f"## Always-on skill: {name}\n\n{skill_body(path)}")
+    path = skills.paths(STATE_DIR).get(name)
+    if path and name in cfg["skills"]["always_on"]:
+        emit("SessionStart", f"## Always-on skill: {name}\n\n{skills.body(path)}")
 
 
 def on_prompt(data, cfg):
     prompt = data.get("prompt") or ""
     sid = data.get("session_id")
     s = load_session(sid, cfg)
-    cmd = CMD_RE.match(prompt)
-    if cmd:
-        word = cmd.group(1).lower()
-        if word != "status":
-            s["mode"] = word
+    if m := MODE_RE.match(prompt):
+        if m.group(1).lower() != "status":
+            s["mode"] = m.group(1).lower()
             save_session(sid, s)
-        msg = (f"jev-router mode: {s['mode']}. Active skills: "
-               f"{', '.join(s['loaded']) or 'none'}.")
-        print(json.dumps({"decision": "block", "reason": msg}))
+        return block(status(cfg, s))
+    if m := TOGGLE_RE.match(prompt):
+        name, on = m.group(1).lower(), m.group(2).lower() == "on"
+        s["off"] = [n for n in s["off"] if n != name] + ([] if on else [name])
+        save_session(sid, s)
+        return block(status(cfg, s))
+    names = enabled(cfg, s)
+    if not names or not should_route(prompt, s["mode"], cfg):
         return
-    if not should_route(prompt, s["mode"], cfg):
-        return
-    cat = catalog.load(STATE_DIR)
-    paths = {x["name"]: x["path"] for x in cat["skills"]}
+    questions = {}
+    for n in names:
+        questions.update(ROUTERS[n].questions(cfg[n], STATE_DIR))
     state = {"prompt": prompt, "project": Path(data.get("cwd") or ".").name}
     digest = hashlib.sha256(prompt.encode()).hexdigest()[:12]
     try:
         key = jev.load_key(cfg.get("env_file"))
-        answers, meta = jev.evaluate(key, state, build_questions(cfg, cat),
-                                     cfg["model"], cfg["timeout_s"])
+        answers, meta = jev.evaluate(key, state, questions, cfg["model"], cfg["timeout_s"])
     except jev.JevError as e:
         log({"event": "error", "prompt_sha": digest, "error": str(e)})
-        if not s["fallback_shown"]:
+        if "skills" in names and not s["fallback_shown"]:
             s["fallback_shown"] = True
             save_session(sid, s)
             emit("UserPromptSubmit", "[jev-router] Router unavailable. If a specialised "
                  f"skill could help, pick one from {STATE_DIR / 'catalog.md'}.")
         return
-    new, active, use, skip = decide(answers, cfg, s["loaded"])
-    new = [n for n in new if n in paths]
-    s["loaded"] += new
+    lines, entry = [], {"event": "route", "prompt_sha": digest, "mode": s["mode"], **meta}
+    for n in names:
+        line, detail = ROUTERS[n].route(cfg[n], answers, s, STATE_DIR)
+        if line:
+            lines.append(line)
+        entry[n] = detail
     save_session(sid, s)
-    log({"event": "route", "prompt_sha": digest, "mode": s["mode"], "new": new,
-         "active": active, "use": use, "skip": skip,
-         "skill_choice": answers["skill"]["choice"],
-         "skill_p": round(answers["skill"]["probabilities"].get(answers["skill"]["choice"], 0), 3),
-         **meta})
-    emit("UserPromptSubmit", render(new, active, use, skip, paths))
+    log(entry)
+    if lines:
+        emit("UserPromptSubmit", "[jev-router] " + " ".join(lines))
 
 
 def main():

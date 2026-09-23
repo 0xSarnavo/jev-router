@@ -8,7 +8,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import catalog  # noqa: E402
+import skills  # noqa: E402
 from router import STATE_DIR, load_config  # noqa: E402
 
 SETTINGS = Path.home() / ".claude" / "settings.json"
@@ -44,14 +44,14 @@ def main():
                 del hooks[event]
     else:
         cfg = load_config()
-        cat = catalog.build(STATE_DIR)
+        cat = skills.build_catalog(STATE_DIR)
         hooks["SessionStart"].append(hook("session-start", 10))
-        for name in cfg["always_on"]:
+        for name in cfg["skills"]["always_on"]:
             hooks["SessionStart"].append(hook(f"always-on {name}", 10))
         hooks["UserPromptSubmit"].append(hook("prompt", cfg["timeout_s"] + 4))
         rec = json.loads(RECORD.read_text()) if RECORD.exists() else {"added_overrides": []}
         for sk in cat["skills"]:
-            if sk["name"] not in overrides and sk["name"] not in cfg["never_route"]:
+            if sk["name"] not in overrides and sk["name"] not in cfg["skills"]["never_route"]:
                 overrides[sk["name"]] = "user-invocable-only"
                 rec["added_overrides"].append(sk["name"])
         STATE_DIR.mkdir(parents=True, exist_ok=True)

@@ -1,65 +1,117 @@
 # jev-router
 
-A per-prompt skill and tool router for [Claude Code](https://claude.com/claude-code), powered by
-[Jev](https://docs.typesafe.ai), TypeSafe's System One model.
+Per-prompt routing for coding agents, powered by [Jev](https://docs.typesafe.ai), TypeSafe's
+System One model. Jev returns typed answers and probabilities in well under a second, which makes
+it cheap enough to run before every prompt.
 
-Claude Code lists every skill description at startup. With a hundred or more skills that is a lot
-of context spent before you type. jev-router hides the skills and loads them on demand:
+There are three routers. Each has its own config section, can be switched off on its own, and
+shares one Jev request per prompt with the others.
 
-1. **Session start.** A hook injects the skills you always want (default: `i-have-adhd`, `caveman`).
-2. **Each prompt.** A hook sends the prompt to Jev in one request with typed questions:
-   - yes/no gates for context skills: `ponytail` when code will change, `no-ai-slop` when writing
-     prose, `potpie-cli` when the answer needs recorded project history;
-   - one choice over every other skill in `~/.claude/skills`, including `none`;
-   - one yes/no per tool group (web, browser, railway, figma, github, subagents).
-3. **Advice, not control.** The hook adds one `[jev-router]` line telling Claude which skill files
-   to read and which tool groups to skip. Nothing is blocked. Skills are loaded once per session.
+| Router | What it decides | Status |
+| --- | --- | --- |
+| [Skill router](docs/skill-router.md) | Which skill files to load for this prompt, if any | Working, Claude Code |
+| [Tool router](docs/tool-router.md) | Which tool groups the prompt needs and which to skip | Working, Claude Code |
+| [Model router](docs/model-router.md) | Which model, and which agent CLI, should handle the prompt | Planned |
 
-If Jev is unreachable, Claude is pointed at a local markdown index of the skills instead.
+Claude Code lists every skill description at startup. With 140 skills that is thousands of
+tokens spent before the first prompt. The skill router hides them and loads only the ones a
+prompt needs. The tool router adds a one-line hint so Claude skips tool groups that cannot help.
 
-Measured on six sample prompts: about 7k Jev tokens and 0.6 to 0.75 s per prompt.
+## How a prompt flows
 
-## Modes
+1. Claude Code runs the `UserPromptSubmit` hook, `router.py prompt`.
+2. The hook checks the session mode. Commands like `jev off` are handled here and never reach
+   Claude.
+3. Each enabled router adds its questions, and the hook sends them to Jev in one request.
+4. Each router turns its answers into a sentence. The hook joins them into one line:
 
-Type these as a prompt. They are handled by the hook and never reach Claude.
+   ```
+   [jev-router] Load skill `ponytail`: read ~/.claude/skills/ponytail/SKILL.md and follow it
+   for this task. Tools not needed, skip them: web, browser, railway, figma.
+   ```
 
-| Prompt | Effect for this session |
-| --- | --- |
-| `jev all` | Route every prompt except slash commands |
-| `jev smart` | Default. Also skip short or trivial prompts like `ok`, `continue` |
-| `jev ask` | Route only prompts that start with `jev:` |
-| `jev off` | No routing |
-| `jev status` | Show mode and skills loaded so far |
+5. If Jev fails, the prompt goes through untouched. Claude is pointed at a local skill index
+   once per session.
 
-## Privacy
-
-Routed prompt text and the project folder name are sent to the TypeSafe API. Use `jev ask` or
-`jev off` in sessions where that is not acceptable. The local log at
-`~/.cache/jev-router/log.jsonl` stores decisions and a prompt hash, never prompt text.
+Measured on this laptop: 6.7k to 7k Jev tokens and 0.55 to 0.75 s per routed prompt.
 
 ## Install
 
-Needs Python 3.9+ (stdlib only) and `TYPESAFE_API_KEY` in the environment Claude Code runs in.
+Requirements:
+
+- Python 3.9 or newer. No packages to install.
+- `TYPESAFE_API_KEY` set in the environment Claude Code starts from. On macOS, set it in your
+  shell profile for the terminal and with `launchctl setenv` for the desktop app.
 
 ```sh
-python3 install.py          # add hooks, hide routed skills from the startup list
+git clone https://github.com/0xSarnavo/jev-router ~/Development/jev.fun/jev-router
+cd ~/Development/jev.fun/jev-router
+python3 -m unittest discover -s tests   # optional, runs offline
+python3 install.py
+```
+
+The installer:
+
+- backs up `~/.claude/settings.json` next to itself;
+- adds the `SessionStart` and `UserPromptSubmit` hooks, plus one `SessionStart` hook per
+  always-on skill;
+- sets each skill in `~/.claude/skills` to `user-invocable-only`, which hides it from the startup
+  list but keeps its slash command working;
+- records the overrides it added in `~/.cache/jev-router/installed.json`.
+
+Start a new Claude Code session to pick up the hooks. Rerun `install.py` after changing
+`always_on` or after adding skills you want hidden.
+
+To remove everything the installer added:
+
+```sh
 python3 install.py --uninstall
 ```
 
-The installer backs up `~/.claude/settings.json` and records which skill overrides it added, so
-uninstall removes only those. Rerun it after changing `always_on`.
+## Control it from a session
 
-Hidden skills still work as slash commands, for example `/ponytail`.
+Type these as a normal prompt.
+
+| Prompt | Effect for this session |
+| --- | --- |
+| `jev smart` | Default. Route prompts, skip short or trivial ones like `ok` or `continue` |
+| `jev all` | Route every prompt except slash commands |
+| `jev ask` | Route only prompts that start with `jev:` |
+| `jev off` | Route nothing |
+| `jev skills off`, `jev tools off` | Switch one router off. `on` switches it back |
+| `jev status` | Show mode, routers and skills loaded so far |
 
 ## Configure
 
-Edit `config.json`, or put overrides in `config.local.json` (git-ignored). Thresholds are the
-minimum probability to load a gated skill (`gate`), pick a skill (`skill`), and mark a tool
-group needed (`tool_use`) or skippable (`tool_skip`). Set `env_file` to read the key from a
-`.env` file when the environment lacks it.
+Defaults live in `config.json`. Put your own values in `config.local.json`, which git ignores.
+Top-level keys replace; router sections merge key by key:
 
-## Test
-
-```sh
-python3 -m unittest discover -s tests
+```json
+{ "default_mode": "ask", "tools": { "skip_threshold": 0.1 } }
 ```
+
+| Key | Meaning |
+| --- | --- |
+| `model` | Jev model name, `jev-latest` by default |
+| `default_mode` | Mode for new sessions |
+| `timeout_s` | Jev request timeout. The hook gives up and lets the prompt through after this |
+| `env_file` | A `.env` file to read `TYPESAFE_API_KEY` from if the environment lacks it |
+| `smart.min_words`, `smart.skip_regex` | What smart mode treats as trivial |
+| `skills`, `tools` | Router settings, described in each router's doc |
+
+## Privacy
+
+Routed prompt text and the project folder name go to the TypeSafe API. Use `jev ask` or `jev off`
+in sessions where that is not acceptable. The local log at `~/.cache/jev-router/log.jsonl` stores
+decisions, token counts, latency and a prompt hash. It never stores prompt text.
+
+## Files
+
+| File | Role |
+| --- | --- |
+| `router.py` | Hook entry point: modes, the Jev call, logging |
+| `skills.py` | Skill router and skill catalog |
+| `tools.py` | Tool router |
+| `jev.py` | TypeSafe client, stdlib only, never logs the key |
+| `install.py` | Adds and removes the hooks and skill overrides |
+| `config.json` | Defaults |
