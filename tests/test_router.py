@@ -173,6 +173,16 @@ class TestModels(Base):
         _, d = models.route(c, fake_answers(self.cfg, effort=0.4), s, self.ctx("codex", "gpt-6-sol"))
         self.assertNotIn("block", d)
 
+    def test_long_session_gets_no_downgrade(self):
+        big = Path(tempfile.mkdtemp()) / "t.jsonl"
+        big.write_text("x" * (self.cfg["models"]["quiet_after_kb"] * 1024 + 1))
+        ctx = {"data": {"transcript_path": str(big)}, "prompt": "p", "harness": "claude"}
+        self.cm.stop()
+        with mock.patch.object(models, "claude_model", return_value="claude-opus-5-5"):
+            line, d = models.route(self.cfg["models"], fake_answers(self.cfg, effort=0.4), {}, ctx)
+        self.assertEqual(line, "")
+        self.assertEqual(d["quiet"], "long session")
+
     def test_upgrade_is_only_suggested(self):
         self.cm.stop()
         with mock.patch.object(models, "claude_model", return_value="claude-haiku-4-5"):

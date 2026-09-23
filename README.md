@@ -4,7 +4,7 @@ Per-prompt routing for coding agents, powered by [Jev](https://docs.typesafe.ai)
 System One model. Jev returns typed answers and probabilities in well under a second, which makes
 it cheap enough to run before every prompt.
 
-There are four routers and a launcher. Each router has its own config section, can be switched
+There are five routers and a launcher. Each router has its own config section, can be switched
 off on its own, and shares one Jev request per prompt with the others.
 
 | Part | What it decides | Where |
@@ -13,7 +13,11 @@ off on its own, and shares one Jev request per prompt with the others.
 | [Tool router](docs/tool-router.md) | Which built-in tool groups the prompt needs and which to skip | Claude Code, Codex |
 | [MCP router](docs/mcp-router.md) | Which MCP servers the prompt needs | Hint in session, real cut at launch |
 | [Model router](docs/model-router.md) | Which model and effort level should handle the prompt | Suggest, ask or auto in session |
+| [Context router](docs/context-router.md) | Which earlier turns, from any CLI, the next agent should see | Claude Code, Codex, OpenCode |
 | `jev` launcher | Which CLI, model, effort and MCP servers to start with | Claude Code, Codex, OpenCode |
+
+Questions go to Jev, or to Laya, an open model with the same API that runs locally. See
+[Backends](docs/backends.md).
 
 Claude Code lists every skill description at startup, and OpenCode sends every MCP tool schema on
 every request. On this laptop that was about 83,000 extra tokens per OpenCode request. The routers
@@ -58,8 +62,12 @@ python3 install.py
 The installer:
 
 - backs up `~/.claude/settings.json` next to itself;
-- adds the `SessionStart` and `UserPromptSubmit` hooks, plus one `SessionStart` hook per
-  always-on skill;
+- adds the `SessionStart`, `UserPromptSubmit` and `Stop` hooks to Claude Code, plus one
+  `SessionStart` hook per always-on skill;
+- adds the same hooks to `~/.codex/hooks.json` if Codex is installed. Codex shows "Hooks need
+  review" on its next start. Trust them there once;
+- writes the OpenCode plugin to `~/.config/opencode/plugins/jev-router.js` if OpenCode is
+  installed;
 - sets each skill in `~/.claude/skills` to `user-invocable-only`, which hides it from the startup
   list but keeps its slash command working;
 - records the overrides it added in `~/.cache/jev-router/installed.json`;
@@ -68,7 +76,7 @@ The installer:
 Start a new Claude Code session to pick up the hooks. Rerun `install.py` after changing
 `always_on` or after adding skills you want hidden.
 
-To remove everything the installer added:
+The installer backs up each file it edits next to the original. To remove everything it added:
 
 ```sh
 python3 install.py --uninstall
@@ -86,6 +94,8 @@ Type these as a normal prompt.
 | `jev off` | Route nothing |
 | `jev skills off`, `jev tools off`, `jev mcp off`, `jev models off` | Switch one router off. `on` switches it back |
 | `jev model suggest`, `ask`, `auto`, `off` | How the model router acts. Default `ask` |
+| `jev context off` | Stop handing earlier turns to this session |
+| `jev backend jev`, `laya`, `auto` | Which service answers. Default `auto`: Jev, then Laya |
 | `jev status` | Show mode, routers and skills loaded so far |
 
 ## Configure
@@ -122,6 +132,8 @@ decisions, token counts, latency and a prompt hash. It never stores prompt text.
 | `tools.py` | Tool router |
 | `mcps.py` | MCP router, server discovery for each CLI, launch flags |
 | `models.py` | Model router: tiers, picks, suggest, ask and auto |
+| `context.py` | Context router: turn capture and handover |
+| `opencode/jev-router.js` | OpenCode plugin template |
 | `launch.py` | The `jev` launcher |
 | `jev.py` | TypeSafe client, stdlib only, never logs the key |
 | `install.py` | Adds and removes the hooks and skill overrides |

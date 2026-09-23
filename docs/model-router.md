@@ -80,6 +80,11 @@ model ranks above or below the current one:
 | ask | Claude asks with a picker first: the recommendation, or keep the current model. Picking the cheaper one runs the task in a Sonnet or Haiku subagent | The prompt is blocked with "Run /model and pick gpt-6-luna at low effort, then resend." Resending the same prompt keeps the current model |
 | auto | Claude hands small and standard tasks to a subagent on the cheaper model | Falls back to suggest |
 
+**Long sessions stay quiet.** Each model keeps its own prompt cache, so switching a long session
+to a cheaper model re-sends the whole conversation uncached, and a subagent starts without the
+session's context. Once the transcript passes `quiet_after_kb` (400 KB by default), the router
+stops offering cheaper models. It still mentions when a stronger model may do better.
+
 Ask mode asks once per tier per session, then falls back to a one-line suggestion. Upgrades are
 never automatic. On Haiku, a hard prompt only gets "opus at xhigh effort may do better".
 
@@ -145,6 +150,7 @@ would call `router.py`, set the model on the message and add notes to the system
   "mode": "ask",
   "risk_threshold": 0.6,
   "context_threshold": 0.6,
+  "quiet_after_kb": 400,
   "tiers": { "claude": { "small": ["haiku", "low"] } },
   "rank": { "claude": ["haiku", "sonnet", "opus", "fable"], "codex": ["luna", "sol", "astra"] },
   "claude_subagent": { "small": "haiku", "standard": "sonnet" }
