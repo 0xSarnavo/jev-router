@@ -20,15 +20,30 @@ costs about 300 extra Jev tokens and no extra latency.
 | `model:context` | Noul | Does the task need a lot of the repo or conversation in view at once? |
 | `model:risk` | Noul | Would a wrong answer be costly: data loss, security, production, money? |
 
-Code maps the answers to a tier. Jev supplies the judgment and the config owns the policy:
+Code maps the answers to a tier. Jev supplies the judgment and the config owns the policy.
 
-| Tier | Rule | Claude Code | Codex | OpenCode |
-| --- | --- | --- | --- | --- |
-| small | effort below 1.5, no risk | `haiku` | a mini model | a free or flash model |
-| standard | effort 1.5 to 3 | `sonnet` | default model | chosen default |
-| large | effort 3 or more, or risk | `opus` | top model, high effort | chosen top model |
+| Tier | Rule |
+| --- | --- |
+| small | effort below 1.5 and no risk |
+| standard | effort 1.5 to 3 |
+| large | effort 3 or more, or risk |
+| long | `model:context` yes, on any tier: prefer the biggest context window in that tier or the next |
 
-All model names go in `config.json`, per harness, so nothing is hard-coded.
+Proposed models per harness, all in `config.json`:
+
+| Tier | Claude Code | Codex | OpenCode (free only) |
+| --- | --- | --- | --- |
+| small | `haiku` | `gpt-6-luna`, effort low | `opencode/mimo-v2.6-flash-free` |
+| standard | `sonnet` | `gpt-6-sol`, effort medium | `opencode/big-pickle` |
+| large | `opus` | `gpt-6-astra`, effort high | `opencode/nemotron-3-ultra-free` |
+| long | `opus[1m]` | `gpt-6-sol`, 272k context | `opencode/muse-spark-1.3-contributor-free`, 1M context |
+
+Codex also routes reasoning effort, which matters more there than the model. Your Codex config
+runs `gpt-6-sol` at `xhigh` for everything. Most prompts in the logs so far would rate small or
+standard.
+
+The OpenCode picks come from the catalog: every free model has tool calls and reasoning, so the
+split is by speed and context size. They are a starting point to calibrate against real runs.
 
 ## Behaviour: suggest, ask, auto
 
@@ -51,20 +66,36 @@ Opus may do better." It is never automatic, because upgrades cost more.
 
 ## What each harness allows
 
-Checked on this laptop against Claude Code 2.1.280, Codex CLI 0.155.1 and OpenCode 1.18.32.
+Tested on this laptop on 2026-09-23 with Claude Code 2.1.280, Codex CLI 0.155.1 and OpenCode
+1.18.32.
 
-- **Claude Code.** A `UserPromptSubmit` hook can add context, set the session title or block the
-  prompt. It cannot change the model. That is why ask blocks and auto delegates. A
-  `PreModelSwitch` hook can allow or deny a switch and `PostModelSwitch` can add context after
-  one, which the router can use to note the new model in the session state. To verify: whether
-  the hook input carries the current model, or whether the router has to track it from
-  `/model` commands and the settings file.
-- **Codex.** Has `session_start`, `user_prompt_submit`, `pre_tool_use` and `subagent_start`
-  hooks in `~/.codex/hooks.json`. The skill and tool routers should port with a small output
-  adapter. To verify: the output schema, and whether any hook can pick the model.
-- **OpenCode.** Has a JavaScript plugin system in `~/.config/opencode/plugins`. To verify:
-  whether a plugin hook can set the model for one message. If it can, auto mode becomes a real
-  per-prompt switch there, with no subagent needed.
+| | Claude Code | Codex | OpenCode |
+| --- | --- | --- | --- |
+| Prompt hook | `UserPromptSubmit` | `UserPromptSubmit` | `chat.message` plugin hook |
+| Skill and tool routers work today | Yes | Yes, unchanged | Needs a small JS plugin |
+| Current model in hook input | No. Read it from the transcript, then `settings.json` | Yes, `model` field | Yes, `input.model` |
+| Hook can change the model | No | No | Yes, tested |
+| Hook can turn tools off | No | No | Rejected on the free tier |
+| Hook can add instructions | Yes, `additionalContext` | Yes, same field | Yes, system prompt, tested |
+
+What the tests showed:
+
+- **Claude Code.** The prompt hook can add context, set the title or block. It has no model
+  field, so ask mode blocks and auto mode hands off to a subagent. `PostModelSwitch` fires after
+  `/model`, which lets the router track the current model.
+- **Codex.** Its prompt hook output schema matches Claude Code's field for field. The existing
+  `router.py prompt` ran as a Codex hook without changes and its line reached the model. New
+  hooks need a trust entry in `~/.codex/config.toml` before they run, so the installer has to
+  add one or you approve it in Codex once. No output field sets the model, so Codex gets the
+  same suggest and ask modes as Claude Code. To check: whether Codex subagents accept a model
+  override, which would give Codex an auto mode.
+- **OpenCode.** A plugin that sets `output.message.model` in `chat.message` switched the model
+  for that prompt. The run was started on `big-pickle` and the model call went to
+  `mimo-v2.6-flash-free`, and the reverse worked too. Auto mode is a real per-prompt switch here,
+  with no subagent. Setting `output.message.tools` to turn tools off made the free tier return
+  `FreeTierError: OpenCode's free tier can only be used from within OpenCode`. So the tool router
+  stays advisory there too. Adding a line to the system prompt in
+  `experimental.chat.system.transform` worked, so that is where skill and tool notes go.
 
 ## Switching between CLIs
 
@@ -83,16 +114,18 @@ using a short strengths note for each from config. Then it runs `claude --model 
 
 ## Build order
 
-1. Claude Code model router with suggest and ask. Log every rating next to the model actually
-   used, so thresholds come from data.
-2. Auto mode through subagents, after the logs show the ratings match your own choices.
-3. The `jev` launcher across the three CLIs.
-4. Codex adapter for all three routers.
-5. OpenCode plugin, once the per-message model question is answered.
+1. Model router questions and tiers in `router.py`, with suggest and ask modes for Claude Code
+   and Codex. Log every rating next to the model used, so thresholds come from data.
+2. Codex installer support: hooks in `~/.codex/hooks.json` plus trust entries.
+3. OpenCode plugin: a thin JS file that calls `router.py` and applies the answer. Auto mode
+   switches the model directly, and skill and tool notes go into the system prompt.
+4. Auto mode for Claude Code through subagents, once the logs show the ratings match your own
+   choices.
+5. The `jev` launcher across the three CLIs.
 
 ## Open questions
 
-- Which models count as small, standard and large for you on Codex and OpenCode?
+- Do the proposed Codex and OpenCode tiers match how you use them?
 - Should auto mode ever go below Sonnet on Claude Code, or is Haiku too weak for your work?
 - Which default for new sessions: suggest, ask or auto?
 - For the launcher: should Jev choose the CLI, or do you choose it and Jev only picks the model?

@@ -11,7 +11,7 @@ shares one Jev request per prompt with the others.
 | --- | --- | --- |
 | [Skill router](docs/skill-router.md) | Which skill files to load for this prompt, if any | Working, Claude Code |
 | [Tool router](docs/tool-router.md) | Which tool groups the prompt needs and which to skip | Working, Claude Code |
-| [Model router](docs/model-router.md) | Which model, and which agent CLI, should handle the prompt | Planned |
+| [Model router](docs/model-router.md) | Which model, and which agent CLI, should handle the prompt | Planned, tested against all three CLIs |
 
 Claude Code lists every skill description at startup. With 140 skills that is thousands of
 tokens spent before the first prompt. The skill router hides them and loads only the ones a
