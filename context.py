@@ -7,11 +7,40 @@ import time
 from pathlib import Path
 
 HANDOFF_RE = re.compile(r"^\s*\**Handoff:?\**:?\s*(.+)$", re.I | re.M)
-MEMORY = (
-    (".planning/STATE.md", "GSD state: .planning/STATE.md (resume with gsd-resume-work)"),
-    (".planning/graphs", "Code graph: .planning/graphs/ (query with gsd-graphify)"),
-    (".potpie", "Project memory: Potpie (potpie-cli skill)"),
-)
+GRAPHIFY = Path.home() / ".cache" / "jev-router" / "graphify-venv" / "bin" / "graphify"
+
+
+def potpie_pot(root):
+    """Pot linked to this repo, read from Potpie's own file. `potpie pot linked` takes ~2 s."""
+    try:
+        data = json.loads((Path.home() / ".potpie" / "pots.json").read_text())
+    except (OSError, ValueError):
+        return None
+    for pot_id, sources in (data.get("sources") or {}).items():
+        if any(root == s.get("location") or root.startswith(s.get("location", "") + "/")
+               for s in sources if s.get("location")):
+            return (data.get("pots") or {}).get(pot_id, {}).get("name", pot_id)
+    return None
+
+
+def memory_pointers(root):
+    """Paths and one-line commands only. The agent reads them if it needs them."""
+    r, out = Path(root), []
+    for rel in (".planning/.continue-here.md", ".planning/HANDOFF.json", ".planning/STATE.md"):
+        if (r / rel).exists():
+            out.append(f"GSD handoff: {rel}")
+            break
+    graph = next((r / g for g in (".planning/graphs/graph.json", "graphify-out/graph.json")
+                  if (r / g).exists()), None)
+    if graph:
+        cmd = GRAPHIFY if GRAPHIFY.exists() else "graphify"
+        out.append(f"Code graph: `{cmd} explain <symbol> --graph {graph.relative_to(r)}` for "
+                   "callers and callees. Never dump the whole graph")
+    pot = potpie_pot(root)
+    if pot:
+        out.append(f"Potpie pot `{pot}`: `potpie --json graph search-entities \"<question>\" "
+                   "--limit 3` for past decisions")
+    return out
 
 
 def repo_root(cwd):
@@ -116,7 +145,7 @@ def route(cfg, answers, session, ctx):
     if last.get("transcript"):
         parts.append(f"Full earlier transcript, search it only if you need more: {last['transcript']}")
     if not session.get("memory_shown"):
-        mem = [label for rel, label in MEMORY if (Path(root) / rel).exists()]
+        mem = memory_pointers(root)
         if mem:
             parts.append("Also available: " + "; ".join(mem) + ".")
             session["memory_shown"] = True

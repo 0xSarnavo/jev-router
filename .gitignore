@@ -2,3 +2,5 @@ __pycache__/
 config.local.json
 .env
 *.log
+.planning/
+graphify-out/

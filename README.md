@@ -16,6 +16,8 @@ off on its own, and shares one Jev request per prompt with the others.
 | [Context router](docs/context-router.md) | Which earlier turns, from any CLI, the next agent should see | Claude Code, Codex, OpenCode |
 | `jev` launcher | Which CLI, model, effort and MCP servers to start with | Claude Code, Codex, OpenCode |
 
+How this fits with Potpie, graphify and GSD: [stack-plan.md](docs/stack-plan.md).
+
 Questions go to Jev, or to Laya, an open model with the same API that runs locally. See
 [Backends](docs/backends.md).
 
