@@ -1,0 +1,22 @@
+[
+ {"p": "what does the useEffect cleanup function do", "code": 0, "prose": 0, "history": 0, "tier": "small", "railway": 0, "web": 0},
+ {"p": "rename the Button prop variant to tone in the header component", "code": 1, "prose": 0, "history": 0, "tier": "small", "railway": 0, "web": 0},
+ {"p": "fix the typo in the footer copyright text", "code": 1, "prose": 0, "history": 0, "tier": "small", "railway": 0, "web": 0},
+ {"p": "add a pricing page with three plans and a monthly yearly toggle", "code": 1, "prose": 0, "history": 0, "tier": "standard", "railway": 0, "web": 0},
+ {"p": "write unit tests for the date formatting helper", "code": 1, "prose": 0, "history": 0, "tier": "standard", "railway": 0, "web": 0},
+ {"p": "set up a CI workflow that runs lint and tests on every pull request", "code": 1, "prose": 0, "history": 0, "tier": "standard", "railway": 0, "web": 0},
+ {"p": "our checkout sometimes double charges customers, find out why and fix it", "code": 1, "prose": 0, "history": 0, "tier": "large", "railway": 0, "web": 0},
+ {"p": "migrate the users table to add a non-null email_verified column in production", "code": 1, "prose": 0, "history": 0, "tier": "large", "railway": 0, "web": 0},
+ {"p": "redesign the whole auth architecture to support SSO and multi-tenant orgs", "code": 1, "prose": 0, "history": 0, "tier": "hard", "railway": 0, "web": 0},
+ {"p": "deploy the website to railway and check the logs for errors", "code": 0, "prose": 0, "history": 0, "tier": "large", "railway": 1, "web": 0},
+ {"p": "check railway for the current deploy status of the api service", "code": 0, "prose": 0, "history": 0, "tier": "small", "railway": 1, "web": 0},
+ {"p": "search the web for the latest nextjs 16 caching changes", "code": 0, "prose": 0, "history": 0, "tier": "small", "railway": 0, "web": 1},
+ {"p": "find competitor landing pages and summarize their pricing", "code": 0, "prose": 0, "history": 0, "tier": "standard", "railway": 0, "web": 1},
+ {"p": "write a linkedin post announcing our spigot launch", "code": 0, "prose": 1, "history": 0, "tier": "small", "railway": 0, "web": 0},
+ {"p": "draft release notes for version 2.3 from the changelog", "code": 0, "prose": 1, "history": 0, "tier": "small", "railway": 0, "web": 0},
+ {"p": "rewrite the homepage hero copy so it sounds less corporate", "code": 0, "prose": 1, "history": 0, "tier": "small", "railway": 0, "web": 0},
+ {"p": "why did we decide to remove the design system folder last month", "code": 0, "prose": 0, "history": 1, "tier": "small", "railway": 0, "web": 0},
+ {"p": "what broke the build after last week's dependency upgrade", "code": 0, "prose": 0, "history": 1, "tier": "standard", "railway": 0, "web": 0},
+ {"p": "explain how the payment webhook flow works in this repo", "code": 0, "prose": 0, "history": 0, "tier": "small", "railway": 0, "web": 0},
+ {"p": "thanks, that worked", "code": 0, "prose": 0, "history": 0, "tier": "small", "railway": 0, "web": 0}
+]

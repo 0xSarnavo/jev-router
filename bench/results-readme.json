@@ -1,0 +1,32 @@
+{
+ "jev": {
+  "what": 0.98,
+  "jev_or_laya": 0.99,
+  "install": 0.99,
+  "use": 0.97,
+  "results": 0.99,
+  "benchmark_backends": 0.99,
+  "benchmark_clis": 0.97,
+  "how_it_works": 0.98,
+  "contribute": 0.98,
+  "stack": 0.98,
+  "dogfood": 0.98,
+  "privacy": 0.96,
+  "nontech": 0.92
+ },
+ "laya": {
+  "what": 0.69,
+  "jev_or_laya": 0.44,
+  "install": 0.84,
+  "use": 0.67,
+  "results": 0.79,
+  "benchmark_backends": 0.22,
+  "benchmark_clis": 0.8,
+  "how_it_works": 0.95,
+  "contribute": 0.77,
+  "stack": 0.25,
+  "dogfood": 0.86,
+  "privacy": 0.64,
+  "nontech": 0.59
+ }
+}

@@ -1,0 +1,44 @@
+[
+ {
+  "from": "claude",
+  "to": "codex",
+  "passed": true,
+  "first_s": 10.7,
+  "second_s": 12.4
+ },
+ {
+  "from": "claude",
+  "to": "opencode",
+  "passed": true,
+  "first_s": 8.9,
+  "second_s": 21.4
+ },
+ {
+  "from": "codex",
+  "to": "claude",
+  "passed": true,
+  "first_s": 11.5,
+  "second_s": 8.7
+ },
+ {
+  "from": "codex",
+  "to": "opencode",
+  "passed": true,
+  "first_s": 10.3,
+  "second_s": 14.5
+ },
+ {
+  "from": "opencode",
+  "to": "claude",
+  "passed": true,
+  "first_s": 14.0,
+  "second_s": 8.5
+ },
+ {
+  "from": "opencode",
+  "to": "codex",
+  "passed": true,
+  "first_s": 15.6,
+  "second_s": 12.4
+ }
+]
