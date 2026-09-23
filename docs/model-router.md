@@ -39,8 +39,7 @@ Proposed models per harness, all in `config.json`:
 | long | `opus[1m]` | `gpt-6-sol`, 272k context | `opencode/muse-spark-1.3-contributor-free`, 1M context |
 
 Codex also routes reasoning effort, which matters more there than the model. Your Codex config
-runs `gpt-6-sol` at `xhigh` for everything. Most prompts in the logs so far would rate small or
-standard.
+runs `gpt-6-sol` at `xhigh` for every prompt, including one-line questions.
 
 The OpenCode picks come from the catalog: every free model has tool calls and reasoning, so the
 split is by speed and context size. They are a starting point to calibrate against real runs.
