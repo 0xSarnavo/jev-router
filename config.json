@@ -1,0 +1,37 @@
+{
+  "model": "jev-latest",
+  "default_mode": "smart",
+  "timeout_s": 6,
+  "env_file": null,
+  "always_on": [
+    "i-have-adhd",
+    "caveman"
+  ],
+  "gated_skills": {
+    "ponytail": "Does `prompt` ask the coding assistant to write, change, fix, refactor or design code, or to choose a library or dependency? Questions that only explain or look up code without changing it are no.",
+    "no-ai-slop": "Does `prompt` ask the assistant to write or edit prose that people will read, such as a post, email, docs page, README, landing copy or message? Code, commands and chat answers are no.",
+    "potpie-cli": "Is `prompt` asking about why or when something in this project was decided, changed, built or broken before, so that the answer must come from recorded project history rather than from reading the current code?"
+  },
+  "never_route": [
+    "skill-router"
+  ],
+  "tool_groups": {
+    "web": "searching the web or fetching live web pages (WebSearch, WebFetch, TinyFish, Firecrawl)",
+    "browser": "driving a real browser to click, fill forms or take screenshots (Claude in Chrome, computer use)",
+    "railway": "deploying or inspecting services on Railway hosting",
+    "figma": "reading or writing Figma design files",
+    "github": "GitHub pull requests, issues, CI checks or releases via the gh CLI",
+    "subagents": "splitting the work across parallel background agents or workflows"
+  },
+  "thresholds": {
+    "gate": 0.6,
+    "skill": 0.45,
+    "tool_use": 0.6,
+    "tool_skip": 0.2
+  },
+  "smart": {
+    "min_words": 4,
+    "skip_regex": "^\\s*(/|!|#)|^\\s*(y|yes|no|ok|okay|thanks|thank you|continue|go|go on|do it|proceed|next|done)\\W*$"
+  },
+  "ask_prefix": "jev:"
+}
