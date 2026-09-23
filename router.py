@@ -168,8 +168,23 @@ def on_prompt(data, cfg):
         questions.update(ROUTERS[n].questions(cfg[n], ctx))
     state = {"prompt": prompt, "project": Path(data.get("cwd") or ".").name}
     digest = hashlib.sha256(prompt.encode()).hexdigest()[:12]
+    # Waterfall: a vague prompt gets the previous turn up front (free). Otherwise one extra question
+    # asks whether context is needed, and only a yes costs a second request with the previous turn.
+    prev = context.previous_turn(STATE_DIR, context.repo_root(data.get("cwd") or "."), sid) \
+        if cfg["context"]["enabled"] else None
+    context_mode = "none"
+    if prev and context.vague(prompt, cfg["context"]):
+        state["earlier_turn"], context_mode = prev, "vague"
+    elif prev:
+        questions["ctx:needs_more"] = context.NEEDS_CONTEXT
     try:
         answers, meta = jev.ask(cfg, state, questions, s.get("backend"))
+        if answers.get("ctx:needs_more", {}).get("noul", 0) >= cfg["context"]["needs_threshold"]:
+            questions.pop("ctx:needs_more")
+            state["earlier_turn"], context_mode = prev, "second-pass"
+            answers, meta2 = jev.ask(cfg, state, questions, s.get("backend"))
+            meta = {**meta2, "tokens": meta.get("tokens", 0) + meta2.get("tokens", 0),
+                    "latency_ms": meta.get("latency_ms", 0) + meta2.get("latency_ms", 0)}
         ctx["backend"] = meta["backend"]
     except jev.JevError as e:
         log({"event": "error", "prompt_sha": digest, "error": str(e)})
@@ -186,7 +201,7 @@ def on_prompt(data, cfg):
             emit("UserPromptSubmit", note)
         return
     lines, entry = [], {"event": "route", "prompt_sha": digest, "mode": s["mode"],
-                        "harness": harness, **meta}
+                        "harness": harness, "earlier_turn": context_mode, **meta}
     for n in names:
         if not any(k in answers for k in ROUTERS[n].questions(cfg[n], ctx)):
             continue

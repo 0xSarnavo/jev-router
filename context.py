@@ -87,6 +87,38 @@ def capture(cfg, data, session, harness, state_dir):
     p.write_text("\n".join(lines + [json.dumps(entry)]) + "\n")
 
 
+VAGUE_RE = re.compile(r"\b(it|this|that|these|those|above|same|again|continue|yes|yeah|ok|do it|go ahead|"
+                      r"previous|last one|as before|like before|there|here|fix that|redo)\b", re.I)
+
+
+def vague(prompt, cfg):
+    """Cheap local check: short prompts, or ones pointing at something they do not name."""
+    return len(prompt.split()) <= cfg["vague_words"] or bool(VAGUE_RE.search(prompt))
+
+
+def previous_turn(state_dir, root, sid):
+    """This session's last captured turn, written by the Stop hook of any CLI."""
+    p = _log_path(state_dir, root)
+    if not p.exists() or not sid:
+        return None
+    for line in reversed(p.read_text().splitlines()[-60:]):
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue
+        if e.get("session") == sid:
+            return {"asked": e["prompt"][:300], "handoff": e["handoff"], "reply": e["reply"][:400]}
+    return None
+
+
+NEEDS_CONTEXT = {
+    "type": "noul",
+    "instructions": "Is the request in `prompt` too short or vague to understand on its own, so that "
+                    "the earlier conversation is needed to know what it asks? For example it says yes, "
+                    "continue or fix that, or refers to something it does not name.",
+}
+
+
 def candidates(cfg, ctx, session):
     """Recent turns from other sessions in this repo, not yet handed to this session."""
     root = repo_root(ctx["data"].get("cwd") or ".")

@@ -165,7 +165,9 @@
     "scan": 12,
     "keep": 200,
     "budget_chars": 1800,
-    "reply_chars": 600
+    "reply_chars": 600,
+    "vague_words": 6,
+    "needs_threshold": 0.6
   },
   "outcomes": {
     "enabled": true,

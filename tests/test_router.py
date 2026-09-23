@@ -264,6 +264,45 @@ class TestOutcomes(Base):
         self.assertNotIn("last_route", s)
 
 
+class TestWaterfall(Base):
+    def setUp(self):
+        super().setUp()
+        self.cfg["context"]["enabled"] = True
+        self.prev = {"asked": "add a pricing page", "handoff": "pricing page built | next: tests", "reply": "Done."}
+
+    def run_prompt(self, text, first, second=None):
+        calls = []
+
+        def fake(cfg, state, q, backend=None):
+            calls.append((dict(state), set(q)))
+            return (first if len(calls) == 1 else second), {"tokens": 1, "latency_ms": 1, "backend": "jev"}
+        with mock.patch.object(context, "previous_turn", return_value=self.prev), mock.patch.object(jev, "ask", fake):
+            self.run_hook(router.on_prompt, {"session_id": "w", "prompt": text, "cwd": "/tmp"}, self.cfg)
+        return calls
+
+    def test_vague_prompt_gets_context_in_one_call(self):
+        calls = self.run_prompt("yes do it now please", fake_answers(self.cfg))
+        self.assertEqual(len(calls), 1)
+        self.assertIn("earlier_turn", calls[0][0])
+        self.assertNotIn("ctx:needs_more", calls[0][1])
+
+    def test_clear_prompt_one_call_without_context(self):
+        a = fake_answers(self.cfg)
+        a["ctx:needs_more"] = noul(0.1)
+        calls = self.run_prompt("add a monthly yearly toggle to the pricing page component", a)
+        self.assertEqual(len(calls), 1)
+        self.assertNotIn("earlier_turn", calls[0][0])
+        self.assertIn("ctx:needs_more", calls[0][1])
+
+    def test_model_flags_vague_then_second_call_with_context(self):
+        a = fake_answers(self.cfg)
+        a["ctx:needs_more"] = noul(0.9)
+        calls = self.run_prompt("make the numbers on the component match what we discussed", a, fake_answers(self.cfg))
+        self.assertEqual(len(calls), 2)
+        self.assertIn("earlier_turn", calls[1][0])
+        self.assertNotIn("ctx:needs_more", calls[1][1])
+
+
 class TestContext(Base):
     def test_capture_then_hand_over_to_other_session(self):
         cfg = self.cfg["context"]

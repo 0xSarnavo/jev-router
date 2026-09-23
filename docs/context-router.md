@@ -40,6 +40,31 @@ compatible questions and returns answers with backend metadata.
 
 Jev offered 3 earlier turns and picked 2.
 
+## Vague prompts get the previous turn
+
+About 1 in 5 prompts is six words or fewer, like "yes do it" or "fix that". On their own they
+don't say what they need. The router handles this in two steps, so most prompts still cost one
+request:
+
+1. **Free local check.** If the prompt is six words or fewer, or points at something it doesn't
+   name ("it", "this", "same", "continue", "yes"), the previous turn goes into the request
+   straight away.
+2. **One extra question otherwise.** The normal request also asks "is this too vague to
+   understand without the earlier conversation?" Only a yes, at `needs_threshold` or above, sends
+   a second request with the previous turn.
+
+The previous turn comes from the handover log, so it works the same in all three CLIs. The route
+log's `earlier_turn` field says which path each prompt took: `none`, `vague` or `second-pass`.
+
+Tested on 100 vague prompts from real sessions, against what the agent then actually did:
+
+| Question | Balanced accuracy, prompt only | With the previous turn |
+| --- | --- | --- |
+| Code change or plan | 66% | 71% |
+| Web | 64% | 69% |
+| Browser | 53% | 62% |
+| TinyFish MCP | 68% | 77% |
+
 ## Config
 
 ```json
@@ -50,7 +75,9 @@ Jev offered 3 earlier turns and picked 2.
   "scan": 12,
   "keep": 200,
   "budget_chars": 1800,
-  "reply_chars": 600
+  "reply_chars": 600,
+  "vague_words": 6,
+  "needs_threshold": 0.6
 }
 ```
 
@@ -61,5 +88,7 @@ Jev offered 3 earlier turns and picked 2.
 | `scan` | How many recent entries to consider per prompt, one Jev question each |
 | `keep` | Entries kept per repo |
 | `budget_chars` | Most handover text injected per prompt |
+| `vague_words` | Prompts this short always get the previous turn |
+| `needs_threshold` | How sure the "too vague?" answer must be before a second request |
 
 `jev context off` switches it off for a session. The handoff log stays on this machine.
