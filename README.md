@@ -71,22 +71,14 @@ work, and what it would take: [docs/backends.md](docs/backends.md#does-laya-need
 | macOS or Linux | The hooks are shell commands | |
 | Python 3.11 or newer | The router is plain Python, no packages | `python3 --version` |
 | At least one of Claude Code, Codex, OpenCode | The agents it routes for | `claude --version`, `codex --version`, `opencode --version` |
-| A TypeSafe API key | Jev answers the routing questions. See [docs.typesafe.ai](https://docs.typesafe.ai) | `echo $TYPESAFE_API_KEY` |
+| A TypeSafe API key | Jev answers the routing questions. Get one at [console.typesafe.ai/keys](https://console.typesafe.ai/keys). Not needed with Laya | The installer asks for it |
 | Git | Clone the repo, and the handover reads `git status` | `git --version` |
 
 Laya, Potpie, graphify and GSD are optional.
 
 ### Steps
 
-1. **Put your key where your agents can see it.** Add it to your shell profile for terminal use.
-   On macOS, also run `launchctl setenv` so desktop apps get it:
-
-   ```sh
-   echo 'export TYPESAFE_API_KEY=your-key' >> ~/.zshrc
-   launchctl setenv TYPESAFE_API_KEY your-key   # macOS only
-   ```
-
-2. **Clone and test.** The tests run offline in about a second.
+1. **Clone and test.** The tests run offline in about a second.
 
    ```sh
    git clone https://github.com/0xSarnavo/jev-router ~/jev-router
@@ -94,7 +86,7 @@ Laya, Potpie, graphify and GSD are optional.
    python3 -m unittest discover -s tests
    ```
 
-3. **Install.** This backs up every file it edits, then wires in each CLI it finds.
+2. **Install.** This backs up every file it edits, then wires in each CLI it finds.
 
    ```sh
    python3 install.py
@@ -106,6 +98,18 @@ Laya, Potpie, graphify and GSD are optional.
    | Codex | The same hooks in `~/.codex/hooks.json` |
    | OpenCode | A plugin at `~/.config/opencode/plugins/jev-router.js` |
    | Your shell | The `jev` launcher at `~/.local/bin/jev` |
+
+3. **Add your key.** The installer asks for your TypeSafe key, from
+   [console.typesafe.ai/keys](https://console.typesafe.ai/keys), and saves it to
+   `~/.config/jev-router/key`, readable only by you. Hooks in terminals and desktop apps both find
+   it there. To set or replace it later:
+
+   ```sh
+   python3 install.py --key
+   ```
+
+   A `TYPESAFE_API_KEY` environment variable also works and takes precedence. Skip the key to run on
+   local Laya only, with `jev backend laya`.
 
 4. **Codex only: trust the hooks once.** Start `codex`. It shows "Hooks need review". Choose to
    trust them.
@@ -128,7 +132,8 @@ To undo everything: `python3 install.py --uninstall`.
 
 | Symptom | Cause and fix |
 | --- | --- |
-| No `[jev-router]` notes appear | The session started before install, or the key is missing in that app. Start a new session. Check `~/.cache/jev-router/log.jsonl` for `"event": "error"` lines |
+| No `[jev-router]` notes appear | The session started before install. Start a new session. Check `~/.cache/jev-router/log.jsonl` for `"event": "error"` lines |
+| "No TypeSafe API key" note | Get a key at [console.typesafe.ai/keys](https://console.typesafe.ai/keys) and run `python3 install.py --key` |
 | "Router unavailable" note | Jev could not be reached and Laya is not running. Routing is skipped, and the prompt still goes through |
 | Codex ignores the router | The hooks were not trusted. Restart Codex and trust them |
 | OpenCode turns filed under the wrong project | OpenCode reads its folder from `$PWD`. Start it from a shell in the project, or with `jev` |

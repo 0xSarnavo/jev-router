@@ -173,11 +173,17 @@ def on_prompt(data, cfg):
         ctx["backend"] = meta["backend"]
     except jev.JevError as e:
         log({"event": "error", "prompt_sha": digest, "error": str(e)})
-        if "skills" in names and not s["fallback_shown"]:
+        if not s["fallback_shown"]:
             s["fallback_shown"] = True
             save_session(sid, s)
-            emit("UserPromptSubmit", "[jev-router] Router unavailable. If a specialised "
-                 f"skill could help, pick one from {STATE_DIR / 'catalog.md'}.")
+            note = "[jev-router] Router unavailable."
+            if isinstance(e, jev.MissingKey) or "missing" in str(e):
+                note = ("[jev-router] No TypeSafe API key, so routing is off. Tell the user once: get a "
+                        f"key at {jev.KEY_URL}, then run `python3 {HERE / 'install.py'} --key`, or type "
+                        "`jev backend laya` to use local Laya.")
+            if "skills" in names:
+                note += f" If a specialised skill could help, pick one from {STATE_DIR / 'catalog.md'}."
+            emit("UserPromptSubmit", note)
         return
     lines, entry = [], {"event": "route", "prompt_sha": digest, "mode": s["mode"],
                         "harness": harness, **meta}

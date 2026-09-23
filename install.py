@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Wire jev-router into Claude Code, Codex and OpenCode, or undo it with --uninstall."""
+import getpass
 import json
 import shutil
 import sys
@@ -9,6 +10,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import skills  # noqa: E402
+import jev  # noqa: E402
 from router import STATE_DIR, load_config  # noqa: E402
 
 HOME = Path.home()
@@ -94,11 +96,35 @@ def uninstall(rec):
     print("uninstalled from claude, codex and opencode")
 
 
+def ensure_key(force=False):
+    """Ask for the TypeSafe key if there is none, or print how to set it when not interactive."""
+    if not force:
+        try:
+            jev.load_key()
+            print("jev: TypeSafe API key found")
+            return
+        except jev.MissingKey:
+            pass
+    if not sys.stdin.isatty():
+        print(f"jev: no TypeSafe API key. Get one at {jev.KEY_URL}, then run: python3 {HERE / 'install.py'} --key\n"
+              "     Until then routing is off, or use local Laya with `jev backend laya`.")
+        return
+    key = getpass.getpass(f"Paste your TypeSafe API key (get one at {jev.KEY_URL}), or press Enter to skip: ").strip()
+    if not key:
+        print(f"jev: skipped. Run `python3 {HERE / 'install.py'} --key` later.")
+        return
+    jev.save_key(key)
+    print(f"jev: key saved to {jev.KEY_FILE}, readable only by you")
+
+
 def main():
+    if "--key" in sys.argv:
+        return ensure_key(force=True)
     rec = json.loads(RECORD.read_text()) if RECORD.exists() else {"added_overrides": []}
     if "--uninstall" in sys.argv:
         return uninstall(rec)
     install(load_config(), rec)
+    ensure_key()
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     RECORD.write_text(json.dumps(rec, indent=1))
 

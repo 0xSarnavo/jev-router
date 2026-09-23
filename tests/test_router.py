@@ -227,6 +227,17 @@ class TestCalibrate(unittest.TestCase):
         self.assertEqual(jev.calibrate(a, "/nope.json"), {"x": {"type": "noul", "noul": 0.3}})
 
 
+class TestKey(unittest.TestCase):
+    def test_key_file_fallback_and_missing(self):
+        d = Path(tempfile.mkdtemp()) / "key"
+        with mock.patch.dict(os.environ, {"TYPESAFE_API_KEY": ""}), mock.patch.object(jev, "KEY_FILE", str(d)):
+            with self.assertRaises(jev.MissingKey):
+                jev.load_key()
+            jev.save_key("ts_" + "a" * 20)
+            self.assertEqual(jev.load_key(), "ts_" + "a" * 20)
+            self.assertEqual(oct(d.stat().st_mode & 0o777), "0o600")
+
+
 class TestOutcomes(Base):
     def test_records_what_agent_did_against_advice(self):
         import outcomes

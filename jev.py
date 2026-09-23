@@ -16,15 +16,35 @@ class JevError(RuntimeError):
     pass
 
 
+KEY_FILE = os.path.expanduser("~/.config/jev-router/key")
+KEY_URL = "https://console.typesafe.ai/keys"
+
+
+class MissingKey(JevError):
+    pass
+
+
 def load_key(env_file=None):
+    """TYPESAFE_API_KEY from the environment, then an optional .env file, then KEY_FILE."""
     key = os.environ.get("TYPESAFE_API_KEY", "")
     if not key and env_file and os.path.exists(os.path.expanduser(env_file)):
         for line in open(os.path.expanduser(env_file)):
             if line.startswith("TYPESAFE_API_KEY="):
                 key = line.split("=", 1)[1].strip().strip("'\"")
+    if not key and os.path.exists(KEY_FILE):
+        key = open(KEY_FILE).read().strip()
     if not KEY_RE.fullmatch(key):
-        raise JevError("TYPESAFE_API_KEY is missing or malformed")
+        raise MissingKey("TYPESAFE_API_KEY is missing or malformed")
     return key
+
+
+def save_key(key):
+    if not KEY_RE.fullmatch(key):
+        raise MissingKey("that does not look like a TypeSafe API key")
+    os.makedirs(os.path.dirname(KEY_FILE), exist_ok=True)
+    fd = os.open(KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(key)
 
 
 def evaluate(key, state, questions, model="jev-latest", timeout=6, url=URL):
