@@ -4,3 +4,5 @@ config.local.json
 *.log
 .planning/
 graphify-out/
+laya/
+local/

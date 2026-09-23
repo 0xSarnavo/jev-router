@@ -59,31 +59,94 @@ with probabilities. Neither writes text.
 Default is `auto`: Jev first, Laya when Jev is unreachable. Switch in any session with
 `jev backend jev`, `jev backend laya` or `jev backend auto`. Laya is good enough to keep routing
 going offline. It is not yet good enough to choose models: its effort ratings bunch between 1.4
-and 2.3 for everything, so when Laya answers, the model router only suggests.
+and 2.3 for everything, so when Laya answers, the model router only suggests. Whether Laya needs training for this
+work, and what it would take: [docs/backends.md](docs/backends.md#does-laya-need-training-for-this-work).
 
 ## Install
 
-You need Python 3.11 or newer, and `TYPESAFE_API_KEY` in the environment your agents start from
-(shell profile for terminals, `launchctl setenv` for macOS apps).
+### What you need
 
-```sh
-git clone https://github.com/0xSarnavo/jev-router ~/Development/jev.fun/jev-router
-cd ~/Development/jev.fun/jev-router
-python3 -m unittest discover -s tests   # runs offline, about a second
-python3 install.py
-```
+| Need | Why | Check |
+| --- | --- | --- |
+| macOS or Linux | The hooks are shell commands | |
+| Python 3.11 or newer | The router is plain Python, no packages | `python3 --version` |
+| At least one of Claude Code, Codex, OpenCode | The agents it routes for | `claude --version`, `codex --version`, `opencode --version` |
+| A TypeSafe API key | Jev answers the routing questions. See [docs.typesafe.ai](https://docs.typesafe.ai) | `echo $TYPESAFE_API_KEY` |
+| Git | Clone the repo, and the handover reads `git status` | `git --version` |
 
-The installer backs up every file it edits, then:
+Laya, Potpie, graphify and GSD are optional.
 
-| CLI | What it adds |
+### Steps
+
+1. **Put your key where your agents can see it.** Add it to your shell profile for terminal use.
+   On macOS, also run `launchctl setenv` so desktop apps get it:
+
+   ```sh
+   echo 'export TYPESAFE_API_KEY=your-key' >> ~/.zshrc
+   launchctl setenv TYPESAFE_API_KEY your-key   # macOS only
+   ```
+
+2. **Clone and test.** The tests run offline in about a second.
+
+   ```sh
+   git clone https://github.com/0xSarnavo/jev-router ~/jev-router
+   cd ~/jev-router
+   python3 -m unittest discover -s tests
+   ```
+
+3. **Install.** This backs up every file it edits, then wires in each CLI it finds.
+
+   ```sh
+   python3 install.py
+   ```
+
+   | CLI | What it adds |
+   | --- | --- |
+   | Claude Code | `SessionStart`, `UserPromptSubmit` and `Stop` hooks. Hides your skills from the startup list, and their slash commands still work |
+   | Codex | The same hooks in `~/.codex/hooks.json` |
+   | OpenCode | A plugin at `~/.config/opencode/plugins/jev-router.js` |
+   | Your shell | The `jev` launcher at `~/.local/bin/jev` |
+
+4. **Codex only: trust the hooks once.** Start `codex`. It shows "Hooks need review". Choose to
+   trust them.
+
+5. **Check it works.** Start a new session in any of the three CLIs and type `jev status`. You
+   should see the mode and routers. In Claude Code and Codex the command never reaches the
+   model. OpenCode plugins cannot block a prompt, so there the agent relays the status. Then try the
+   launcher without starting anything:
+
+   ```sh
+   jev --dry "fix the typo in the footer"
+   ```
+
+6. **Optional: Laya as an offline fallback.** Follow
+   [docs/backends.md](docs/backends.md#running-laya). About 800 MB.
+
+To undo everything: `python3 install.py --uninstall`.
+
+### Troubleshooting
+
+| Symptom | Cause and fix |
 | --- | --- |
-| Claude Code | `SessionStart`, `UserPromptSubmit` and `Stop` hooks, and hides your skills from the startup list (their slash commands still work) |
-| Codex | The same hooks in `~/.codex/hooks.json`. Codex shows "Hooks need review" on its next start: trust them once |
-| OpenCode | A plugin at `~/.config/opencode/plugins/jev-router.js` |
-| Your shell | The `jev` launcher at `~/.local/bin/jev` |
+| No `[jev-router]` notes appear | The session started before install, or the key is missing in that app. Start a new session. Check `~/.cache/jev-router/log.jsonl` for `"event": "error"` lines |
+| "Router unavailable" note | Jev could not be reached and Laya is not running. Routing is skipped, and the prompt still goes through |
+| Codex ignores the router | The hooks were not trusted. Restart Codex and trust them |
+| OpenCode turns filed under the wrong project | OpenCode reads its folder from `$PWD`. Start it from a shell in the project, or with `jev` |
+| `jev: command not found` | `~/.local/bin` is not on your `PATH` |
 
-Undo all of it with `python3 install.py --uninstall`. For Laya, see
-[docs/backends.md](docs/backends.md#running-laya).
+## When you add something new
+
+The router discovers most things by itself. This is what to do for the rest:
+
+| You add | Do this |
+| --- | --- |
+| A skill in `~/.claude/skills` | Nothing for routing, the catalog rebuilds when a `SKILL.md` changes. Rerun `python3 install.py` to hide it from the startup list |
+| An MCP server | It is found automatically. Add one line to `mcp.describe` in `config.local.json` saying what it is for, or Jev only sees its name |
+| A skill that should always load | Add it to `skills.always_on` and rerun `install.py` |
+| A skill that fits a kind of work, not a topic | Add a yes/no question to `skills.gated`, then rerun `python3 bench/backends.py` |
+| A new model release | Edit `models.tiers` and `models.rank`. Check effort advice before raising a tier |
+| A new agent CLI | It needs a prompt hook or plugin that can add context. See [docs/model-router.md](docs/model-router.md#what-each-cli-allows) for what the current three allow |
+| A new version of Claude Code, Codex or OpenCode | Run `python3 bench/handover.py` to confirm handovers still pass |
 
 ## Use it
 
@@ -180,10 +243,29 @@ fresh repo. Agent B, a different CLI, is asked for it without reading files.
 6 of 6 directions passed. The time is how long the second agent took to answer. Without the handover the second agent has no way to know the codename: it is in no file.
 
 **This README** (`python3 bench/readme_check.py`). Jev and Laya each judged whether this file
-covers the 13 points it is meant to cover, from "explains what it is in plain words" to "says
-what data leaves the machine". Jev rated all 13 as covered, between 0.92 and 0.99. Laya rated 4
+covers the 15 points it is meant to cover, from "explains what it is in plain words" to "says
+what data leaves the machine". Jev rated all 15 as covered, between 0.94 and 0.99. Laya rated 4
 below 0.6, mostly because it reads only about 320 tokens of a 2,000-word file. Full table in
 [bench/README.md](bench/README.md).
+
+## FAQ
+
+**Does it work with a subscription, or only with API keys?** Both. The router runs inside each CLI
+and does not care how the CLI signs in. Everything in this README was tested with Claude Code on
+a claude.ai subscription, Codex signed in with ChatGPT, and OpenCode with no account on its free
+models. The only key it needs is `TYPESAFE_API_KEY` for Jev, which is a separate service, and
+Laya needs no key at all. On a subscription the savings show up as usage limits rather than
+money, where plans count heavier models against those limits faster.
+
+**Can I get the same skills and tools?** Most of them. [docs/oss.md](docs/oss.md) lists where
+each skill comes from, its license and the install command. 125 of the 143 skills on the
+author's machine come from repos with an open-source license. `npx skills add <repo> -g -a '*'`
+installs a skill for Claude Code, Codex and OpenCode at once.
+
+**Is there a better local option than stock Laya?** Yes, as an alternative:
+[laya-coding-router](https://github.com/0xSarnavo/laya-coding-router) is Laya fine-tuned for these
+questions, with the same API. It is still training. See
+[docs/backends.md](docs/backends.md#alternative-laya-coding-router).
 
 ## Privacy
 

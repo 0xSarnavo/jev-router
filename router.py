@@ -16,6 +16,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import context  # noqa: E402
+import outcomes  # noqa: E402
 import jev  # noqa: E402
 import mcps  # noqa: E402
 import models  # noqa: E402
@@ -187,6 +188,13 @@ def on_prompt(data, cfg):
         if line:
             lines.append(line)
         entry[n] = detail
+    s["last_route"] = {
+        "prompt": prompt, "project": state["project"],
+        "skills": (entry.get("skills") or {}).get("new", []) + (entry.get("skills") or {}).get("active", []),
+        "tools_use": (entry.get("tools") or {}).get("use", []), "tools_skip": (entry.get("tools") or {}).get("skip", []),
+        "mcp_use": (entry.get("mcp") or {}).get("use", []), "mcp_skip": (entry.get("mcp") or {}).get("skip", []),
+        "answers": {k: (a.get("noul") if a["type"] == "noul" else a.get("score") if a["type"] == "score"
+                        else a.get("choice")) for k, a in answers.items()}}
     save_session(sid, s)
     log(entry)
     if (entry.get("models") or {}).get("block"):
@@ -200,9 +208,14 @@ def on_prompt(data, cfg):
 
 
 def on_stop(data, cfg):
-    s = load_session(data.get("session_id"), cfg)
+    sid = data.get("session_id")
+    s = load_session(sid, cfg)
+    harness = models.harness_of(data)
     if cfg["context"]["enabled"] and "context" not in s["off"]:
-        context.capture(cfg["context"], data, s, models.harness_of(data), STATE_DIR)
+        context.capture(cfg["context"], data, s, harness, STATE_DIR)
+    if cfg["outcomes"]["enabled"]:
+        outcomes.record(cfg["outcomes"], data, s, harness, skills.paths(STATE_DIR), STATE_DIR)
+        save_session(sid, s)
 
 
 def main():

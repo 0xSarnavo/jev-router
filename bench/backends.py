@@ -28,8 +28,18 @@ def main():
          **models.questions(cfg["models"], {})}
     cases = json.loads((ROOT / "bench" / "prompts.json").read_text())
     key = jev.load_key(cfg.get("env_file"))
-    backends = {"jev": lambda st: jev.evaluate(key, st, q, cfg["model"], 20),
-                "laya": lambda st: jev.evaluate(None, st, q, cfg["laya"]["model"], 30, cfg["laya"]["url"])}
+    laya = lambda st: jev.evaluate(None, st, q, cfg["laya"]["model"], 30, cfg["laya"]["url"])
+    backends = {"jev": lambda st: jev.evaluate(key, st, q, cfg["model"], 20), "laya": laya}
+    if Path(cfg["laya"]["calibration"]).expanduser().exists():
+        def calibrated(st):
+            a, m = laya(st)
+            alias = {"code": "gate:ponytail", "prose": "gate:no-ai-slop", "history": "gate:potpie-cli",
+                     "railway": "mcp:railway", "web": "mcp:tinyfish"}
+            renamed = {alias.get(k, k): v for k, v in a.items()}
+            jev.calibrate(renamed, cfg["laya"]["calibration"])
+            back = {v: k for k, v in alias.items()}
+            return {back.get(k, k): v for k, v in renamed.items()}, m
+        backends["laya_calibrated"] = calibrated
     out = {}
     for name, call in backends.items():
         hits, lat, tier_exact, tier_near, rows = {k: 0 for k in ("code", "prose", "history", "railway", "web")}, [], 0, 0, []

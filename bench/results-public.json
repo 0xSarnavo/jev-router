@@ -1,0 +1,47 @@
+{
+ "jev": {
+  "backend": "jev",
+  "n": 144,
+  "labels": {
+   "code": {
+    "accuracy": 0.944,
+    "recall_yes": 0.979,
+    "balanced": 0.953
+   },
+   "prose": {
+    "accuracy": 0.979,
+    "recall_yes": 1.0,
+    "balanced": 0.989
+   },
+   "history": {
+    "accuracy": 0.986,
+    "recall_yes": 0.917,
+    "balanced": 0.955
+   },
+   "railway": {
+    "accuracy": 0.965,
+    "recall_yes": 0.75,
+    "balanced": 0.867
+   },
+   "web": {
+    "accuracy": 0.896,
+    "recall_yes": 0.833,
+    "balanced": 0.867
+   },
+   "github": {
+    "accuracy": 0.965,
+    "recall_yes": 1.0,
+    "balanced": 0.981
+   },
+   "browser": {
+    "accuracy": 1.0,
+    "recall_yes": 1.0,
+    "balanced": 1.0
+   }
+  },
+  "balanced_mean": 0.945,
+  "tier_exact": 0.792,
+  "tier_within_one": 0.938,
+  "seconds": 86
+ }
+}

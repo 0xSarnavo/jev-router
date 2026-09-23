@@ -155,7 +155,8 @@
     "url": "http://127.0.0.1:8321/v1/systemone",
     "model": "laya-latest",
     "timeout_s": 4,
-    "max_options": 20
+    "max_options": 20,
+    "calibration": "~/.cache/jev-router/laya-calibration.json"
   },
   "context": {
     "enabled": true,
@@ -165,5 +166,25 @@
     "keep": 200,
     "budget_chars": 1800,
     "reply_chars": 600
+  },
+  "outcomes": {
+    "enabled": true,
+    "match": {
+      "web": [
+        "WebSearch",
+        "WebFetch",
+        "firecrawl",
+        "tinyfish"
+      ],
+      "browser": [
+        "claude-in-chrome",
+        "computer"
+      ],
+      "subagents": [
+        "Agent",
+        "Task",
+        "Workflow"
+      ]
+    }
   }
 }

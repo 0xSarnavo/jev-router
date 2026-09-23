@@ -11,7 +11,7 @@
   "yes_no_accuracy": 0.99,
   "tier_exact": 0.9,
   "tier_within_one": 0.9,
-  "latency_ms_median": 511,
+  "latency_ms_median": 561,
   "rows": [
    {
     "p": "what does the useEffect cleanup function do",
@@ -23,7 +23,7 @@
     "p": "rename the Button prop variant to tone in the header component",
     "tier": "small",
     "expected": "small",
-    "effort": 1.27
+    "effort": 1.23
    },
    {
     "p": "fix the typo in the footer copyright text",
@@ -41,13 +41,13 @@
     "p": "write unit tests for the date formatting helper",
     "tier": "standard",
     "expected": "standard",
-    "effort": 1.66
+    "effort": 1.72
    },
    {
     "p": "set up a CI workflow that runs lint and tests on every pull request",
     "tier": "standard",
     "expected": "standard",
-    "effort": 2.03
+    "effort": 2.07
    },
    {
     "p": "our checkout sometimes double charges customers, find out why and fix it",
@@ -59,7 +59,7 @@
     "p": "migrate the users table to add a non-null email_verified column in production",
     "tier": "large",
     "expected": "large",
-    "effort": 2.32
+    "effort": 2.28
    },
    {
     "p": "redesign the whole auth architecture to support SSO and multi-tenant orgs",
@@ -71,7 +71,7 @@
     "p": "deploy the website to railway and check the logs for errors",
     "tier": "large",
     "expected": "large",
-    "effort": 2.77
+    "effort": 2.82
    },
    {
     "p": "check railway for the current deploy status of the api service",
@@ -83,31 +83,31 @@
     "p": "search the web for the latest nextjs 16 caching changes",
     "tier": "small",
     "expected": "small",
-    "effort": 0.88
+    "effort": 0.97
    },
    {
     "p": "find competitor landing pages and summarize their pricing",
     "tier": "hard",
     "expected": "standard",
-    "effort": 3.64
+    "effort": 3.62
    },
    {
     "p": "write a linkedin post announcing our spigot launch",
     "tier": "small",
     "expected": "small",
-    "effort": 0.51
+    "effort": 0.47
    },
    {
     "p": "draft release notes for version 2.3 from the changelog",
     "tier": "small",
     "expected": "small",
-    "effort": 0.77
+    "effort": 0.74
    },
    {
     "p": "rewrite the homepage hero copy so it sounds less corporate",
     "tier": "small",
     "expected": "small",
-    "effort": 0.85
+    "effort": 0.87
    },
    {
     "p": "why did we decide to remove the design system folder last month",
@@ -119,13 +119,13 @@
     "p": "what broke the build after last week's dependency upgrade",
     "tier": "standard",
     "expected": "standard",
-    "effort": 2.13
+    "effort": 1.98
    },
    {
     "p": "explain how the payment webhook flow works in this repo",
     "tier": "large",
     "expected": "small",
-    "effort": 1.49
+    "effort": 1.5
    },
    {
     "p": "thanks, that worked",
@@ -147,7 +147,7 @@
   "yes_no_accuracy": 0.89,
   "tier_exact": 0.55,
   "tier_within_one": 1.0,
-  "latency_ms_median": 815,
+  "latency_ms_median": 852,
   "rows": [
    {
     "p": "what does the useEffect cleanup function do",
@@ -200,6 +200,142 @@
    {
     "p": "redesign the whole auth architecture to support SSO and multi-tenant orgs",
     "tier": "hard",
+    "expected": "hard",
+    "effort": 3.03
+   },
+   {
+    "p": "deploy the website to railway and check the logs for errors",
+    "tier": "standard",
+    "expected": "large",
+    "effort": 1.91
+   },
+   {
+    "p": "check railway for the current deploy status of the api service",
+    "tier": "standard",
+    "expected": "small",
+    "effort": 1.8
+   },
+   {
+    "p": "search the web for the latest nextjs 16 caching changes",
+    "tier": "standard",
+    "expected": "small",
+    "effort": 2.05
+   },
+   {
+    "p": "find competitor landing pages and summarize their pricing",
+    "tier": "standard",
+    "expected": "standard",
+    "effort": 1.87
+   },
+   {
+    "p": "write a linkedin post announcing our spigot launch",
+    "tier": "standard",
+    "expected": "small",
+    "effort": 1.79
+   },
+   {
+    "p": "draft release notes for version 2.3 from the changelog",
+    "tier": "small",
+    "expected": "small",
+    "effort": 1.31
+   },
+   {
+    "p": "rewrite the homepage hero copy so it sounds less corporate",
+    "tier": "standard",
+    "expected": "small",
+    "effort": 1.73
+   },
+   {
+    "p": "why did we decide to remove the design system folder last month",
+    "tier": "small",
+    "expected": "small",
+    "effort": 1.22
+   },
+   {
+    "p": "what broke the build after last week's dependency upgrade",
+    "tier": "standard",
+    "expected": "standard",
+    "effort": 1.59
+   },
+   {
+    "p": "explain how the payment webhook flow works in this repo",
+    "tier": "standard",
+    "expected": "small",
+    "effort": 2.01
+   },
+   {
+    "p": "thanks, that worked",
+    "tier": "small",
+    "expected": "small",
+    "effort": 1.33
+   }
+  ]
+ },
+ "laya_calibrated": {
+  "n": 20,
+  "gates": {
+   "code": 0.75,
+   "prose": 0.85,
+   "history": 0.9,
+   "railway": 0.9,
+   "web": 0.9
+  },
+  "yes_no_accuracy": 0.86,
+  "tier_exact": 0.5,
+  "tier_within_one": 1.0,
+  "latency_ms_median": 839,
+  "rows": [
+   {
+    "p": "what does the useEffect cleanup function do",
+    "tier": "standard",
+    "expected": "small",
+    "effort": 1.86
+   },
+   {
+    "p": "rename the Button prop variant to tone in the header component",
+    "tier": "small",
+    "expected": "small",
+    "effort": 1.44
+   },
+   {
+    "p": "fix the typo in the footer copyright text",
+    "tier": "small",
+    "expected": "small",
+    "effort": 1.46
+   },
+   {
+    "p": "add a pricing page with three plans and a monthly yearly toggle",
+    "tier": "standard",
+    "expected": "standard",
+    "effort": 2.35
+   },
+   {
+    "p": "write unit tests for the date formatting helper",
+    "tier": "standard",
+    "expected": "standard",
+    "effort": 1.67
+   },
+   {
+    "p": "set up a CI workflow that runs lint and tests on every pull request",
+    "tier": "standard",
+    "expected": "standard",
+    "effort": 2.09
+   },
+   {
+    "p": "our checkout sometimes double charges customers, find out why and fix it",
+    "tier": "standard",
+    "expected": "large",
+    "effort": 1.67
+   },
+   {
+    "p": "migrate the users table to add a non-null email_verified column in production",
+    "tier": "standard",
+    "expected": "large",
+    "effort": 1.76
+   },
+   {
+    "p": "redesign the whole auth architecture to support SSO and multi-tenant orgs",
+    "tier": "large",
     "expected": "hard",
     "effort": 3.03
    },

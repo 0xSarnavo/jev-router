@@ -23,6 +23,8 @@ POINTS = {
     "dogfood": "says the project uses its own router, Potpie, graphify and GSD on itself",
     "privacy": "says what data leaves the machine",
     "nontech": "has an explanation a non-technical reader can follow",
+    "new_user": "walks a new user through setup step by step, including prerequisites and how to check it works",
+    "adding": "says what to do after adding a new skill, MCP server, model or agent CLI",
 }
 
 

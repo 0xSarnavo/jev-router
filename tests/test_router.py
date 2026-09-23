@@ -54,6 +54,7 @@ class Base(unittest.TestCase):
         self.cfg = router.load_config()
         self.cfg["backend"] = "jev"
         self.cfg["context"]["enabled"] = False
+        self.cfg["outcomes"]["enabled"] = False
 
     def tearDown(self):
         self.patch.stop()
@@ -208,6 +209,48 @@ class TestBackend(Base):
         self.assertEqual(meta["backend"], "laya")
         self.assertEqual(list(answers), ["yes"])
         self.assertEqual(calls[-1], cfg["laya"]["url"])
+
+
+class TestCalibrate(unittest.TestCase):
+    def test_platt_and_effort_map(self):
+        path = Path(tempfile.mkdtemp()) / "cal.json"
+        path.write_text(json.dumps({"noul": {"gate:ponytail": [2.0, 0.0]}, "effort": [0, 1, 2, 3, 4, 0]}))
+        a = {"gate:ponytail": {"type": "noul", "noul": 0.7},
+             "model:effort": {"type": "score", "score": 1.9,
+                              "probabilities": {"0": 0, "1": 0, "2": 0, "3": 1.0, "4": 0}}}
+        jev.calibrate(a, str(path))
+        self.assertGreater(a["gate:ponytail"]["noul"], 0.8)
+        self.assertEqual(a["model:effort"]["score"], 3.0)
+
+    def test_missing_file_is_a_no_op(self):
+        a = {"x": {"type": "noul", "noul": 0.3}}
+        self.assertEqual(jev.calibrate(a, "/nope.json"), {"x": {"type": "noul", "noul": 0.3}})
+
+
+class TestOutcomes(Base):
+    def test_records_what_agent_did_against_advice(self):
+        import outcomes
+        tp = Path(tempfile.mkdtemp()) / "t.jsonl"
+        lines = [
+            {"type": "user", "message": {"content": "old prompt"}},
+            {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "WebSearch", "input": {}}]}},
+            {"type": "user", "message": {"content": "deploy it"}},
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "name": "Read", "input": {"file_path": "/s/use-railway/SKILL.md"}},
+                {"type": "tool_use", "name": "mcp__railway__list-services", "input": {}},
+                {"type": "tool_use", "name": "Bash", "input": {"command": "cd x && gh pr list"}}]}},
+        ]
+        tp.write_text("\n".join(json.dumps(l) for l in lines))
+        s = {"last_route": {"prompt": "deploy it", "project": "p", "skills": ["use-railway"],
+                            "tools_use": [], "tools_skip": ["web"], "mcp_use": ["railway"], "mcp_skip": [],
+                            "answers": {"mcp:railway": 0.9}}}
+        outcomes.record(self.cfg["outcomes"], {"transcript_path": str(tp)}, s, "claude",
+                        {"use-railway": "/s/use-railway/SKILL.md"}, router.STATE_DIR)
+        row = json.loads((router.STATE_DIR / "outcomes.jsonl").read_text().splitlines()[-1])
+        self.assertEqual(row["did"]["skills"], ["use-railway"])
+        self.assertEqual(row["did"]["mcp"], ["railway"])
+        self.assertEqual(row["did"]["tools"], ["github"])
+        self.assertNotIn("last_route", s)
 
 
 class TestContext(Base):

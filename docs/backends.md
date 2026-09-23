@@ -37,6 +37,21 @@ Where Laya was wrong in ways that matter:
 So Laya is a working offline fallback, not a replacement. It also loads with an uncalibrated
 temperature warning, which its README says to fix by re-fitting on your own labels.
 
+## Does Laya need training for this work?
+
+For yes/no questions, stock Laya is usable as a fallback: 89% against Jev's 99% on the labelled set.
+For the model tier it is not. Its effort scores stayed between 1.22 and 3.03 across 20 prompts,
+where Jev ranged from 0.01 to 4.0, and moving the tier cutoffs does not fix that: the best
+cutoffs fitted to those 20 prompts reached 13 of 20 exact, against 11 with the defaults and 18 for
+Jev. That is why the model router only suggests when Laya answered.
+
+## Alternative: laya-coding-router
+
+[laya-coding-router](https://github.com/0xSarnavo/laya-coding-router) is Laya fine-tuned for these
+exact questions. It serves the same `/v1/systemone` API, so it drops in wherever stock Laya does:
+start its server, keep `laya.url` pointing at it, and choose `jev backend laya` or `auto`. It is
+still training. Its repo has the current results and a public test set.
+
 ## Running Laya
 
 ```sh

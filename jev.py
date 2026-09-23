@@ -1,5 +1,6 @@
 """Minimal TypeSafe System One client. Stdlib only, never echoes the key."""
 import json
+import math
 import os
 import re
 import time
@@ -78,4 +79,21 @@ def ask(cfg, state, questions, backend=None):
     if not small:
         raise JevError("no questions fit Laya")
     answers, meta = evaluate(None, state, small, laya["model"], laya["timeout_s"], laya["url"])
-    return answers, {**meta, "backend": "laya"}
+    return calibrate(answers, laya.get("calibration", "")), {**meta, "backend": "laya"}
+
+
+def calibrate(answers, path):
+    """Apply a per-question calibration file to Laya's answers, if one exists."""
+    try:
+        cal = json.loads(open(os.path.expanduser(path)).read())
+    except (OSError, ValueError):
+        return answers
+    for k, a in answers.items():
+        if a["type"] == "noul" and k in cal["noul"]:
+            p = min(max(a["noul"], 1e-4), 1 - 1e-4)
+            x, (s, b) = math.log(p / (1 - p)), cal["noul"][k]
+            a["noul"] = 1 / (1 + math.exp(-(s * x + b)))
+        elif a["type"] == "score" and k == "model:effort" and cal.get("effort"):
+            probs = [a["probabilities"][str(i)] for i in range(len(a["probabilities"]))] + [1.0]
+            a["score"] = min(4.0, max(0.0, sum(x * w for x, w in zip(probs, cal["effort"]))))
+    return answers
