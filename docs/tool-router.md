@@ -1,6 +1,7 @@
 # Tool router
 
-Adds a hint about which tool groups a prompt needs and which it can skip.
+Adds a hint about which built-in tool groups a prompt needs and which it can skip. MCP servers
+have their own router, see [MCP router](mcp-router.md).
 
 ## What it does
 
@@ -21,7 +22,7 @@ search, the schema load and the call that would not have helped.
   "enabled": true,
   "groups": {
     "web": "searching the web or fetching live web pages (WebSearch, WebFetch, TinyFish, Firecrawl)",
-    "railway": "deploying or inspecting services on Railway hosting"
+    "browser": "driving a real browser to click, fill forms or take screenshots (Claude in Chrome, computer use)"
   },
   "use_threshold": 0.6,
   "skip_threshold": 0.2

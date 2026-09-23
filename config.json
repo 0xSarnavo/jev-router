@@ -30,12 +30,123 @@
     "groups": {
       "web": "searching the web or fetching live web pages (WebSearch, WebFetch, TinyFish, Firecrawl)",
       "browser": "driving a real browser to click, fill forms or take screenshots (Claude in Chrome, computer use)",
-      "railway": "deploying or inspecting services on Railway hosting",
-      "figma": "reading or writing Figma design files",
       "github": "GitHub pull requests, issues, CI checks or releases via the gh CLI",
       "subagents": "splitting the work across parallel background agents or workflows"
     },
     "use_threshold": 0.6,
     "skip_threshold": 0.2
+  },
+  "mcp": {
+    "enabled": true,
+    "use_threshold": 0.6,
+    "skip_threshold": 0.2,
+    "ignore": [
+      "node_repl"
+    ],
+    "describe": {
+      "railway": "the Railway MCP server for deploying and inspecting Railway services",
+      "tinyfish": "the TinyFish MCP server for web search, page fetching and browser automation",
+      "figma": "the Figma MCP server for reading or editing Figma designs",
+      "higgsfield": "the Higgsfield MCP server for generating images or video",
+      "logos-copilot": "the Logos copilot MCP server for Logos blockchain docs and recipes"
+    }
+  },
+  "models": {
+    "enabled": true,
+    "mode": "ask",
+    "risk_threshold": 0.6,
+    "context_threshold": 0.6,
+    "tiers": {
+      "claude": {
+        "small": [
+          "haiku",
+          "low"
+        ],
+        "standard": [
+          "sonnet",
+          "medium"
+        ],
+        "large": [
+          "opus",
+          "medium"
+        ],
+        "hard": [
+          "opus",
+          "xhigh"
+        ],
+        "long": [
+          "opus[1m]",
+          "medium"
+        ]
+      },
+      "codex": {
+        "small": [
+          "gpt-6-luna",
+          "low"
+        ],
+        "standard": [
+          "gpt-6-sol",
+          "medium"
+        ],
+        "large": [
+          "gpt-6-sol",
+          "max"
+        ],
+        "hard": [
+          "gpt-6-astra",
+          "high"
+        ],
+        "long": [
+          "gpt-6-sol",
+          "medium"
+        ]
+      },
+      "opencode": {
+        "small": [
+          "opencode/muse-spark-1.3-contributor-free",
+          null
+        ],
+        "standard": [
+          "opencode/muse-spark-1.3-contributor-free",
+          null
+        ],
+        "large": [
+          "opencode/muse-spark-1.3-contributor-free",
+          null
+        ],
+        "hard": [
+          "opencode/muse-spark-1.3-contributor-free",
+          null
+        ],
+        "long": [
+          "opencode/muse-spark-1.3-contributor-free",
+          null
+        ]
+      }
+    },
+    "rank": {
+      "claude": [
+        "haiku",
+        "sonnet",
+        "opus",
+        "fable"
+      ],
+      "codex": [
+        "luna",
+        "sol",
+        "astra"
+      ]
+    },
+    "claude_subagent": {
+      "small": "haiku",
+      "standard": "sonnet"
+    }
+  },
+  "launcher": {
+    "notes": {
+      "claude": "Claude Code with Claude models. Best for terminal-heavy agentic coding, hard debugging and very long context.",
+      "codex": "Codex with GPT-6 models. Cheapest for questions and small edits, strong at math, science and computer use, good value for routine features.",
+      "opencode": "OpenCode with free models only. Use when the task is simple and cost must be zero."
+    }
   }
 }

@@ -16,13 +16,17 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import jev  # noqa: E402
+import mcps  # noqa: E402
+import models  # noqa: E402
 import skills  # noqa: E402
 import tools  # noqa: E402
 
 STATE_DIR = Path(os.environ.get("JEV_ROUTER_STATE", Path.home() / ".cache" / "jev-router"))
-ROUTERS = {"skills": skills, "tools": tools}
+ROUTERS = {"skills": skills, "tools": tools, "mcp": mcps, "models": models}
+NOT_USER = ("<task-notification", "[SYSTEM NOTIFICATION", "<system-reminder", "<local-command")
 MODE_RE = re.compile(r"^\s*jev\s+(?:mode\s+)?(all|smart|ask|off|status)\s*$", re.I)
-TOGGLE_RE = re.compile(r"^\s*jev\s+(skills|tools)\s+(on|off)\s*$", re.I)
+TOGGLE_RE = re.compile(r"^\s*jev\s+(skills|tools|mcp|models)\s+(on|off)\s*$", re.I)
+MODEL_RE = re.compile(r"^\s*jev\s+model\s+(suggest|ask|auto|off)\s*$", re.I)
 
 
 def load_config():
@@ -69,6 +73,8 @@ def enabled(cfg, s):
 
 
 def should_route(prompt, mode, cfg):
+    if prompt.lstrip().startswith(NOT_USER):
+        return False
     if mode == "off":
         return False
     if mode == "ask":
@@ -94,6 +100,7 @@ def block(msg):
 
 def status(cfg, s):
     return (f"jev-router mode: {s['mode']}. Routers on: {', '.join(enabled(cfg, s)) or 'none'}. "
+            f"Model mode: {s.get('model_mode', cfg['models']['mode'])}. "
             f"Skills loaded: {', '.join(s['loaded']) or 'none'}.")
 
 
@@ -101,6 +108,7 @@ def on_session_start(data, cfg):
     sid = data.get("session_id")
     s = load_session(sid, cfg)
     s["loaded"], s["fallback_shown"] = [], False
+    s.pop("model_asked", None)
     save_session(sid, s)
     if cfg["skills"]["enabled"]:
         skills.load_catalog(STATE_DIR)
@@ -130,12 +138,19 @@ def on_prompt(data, cfg):
         s["off"] = [n for n in s["off"] if n != name] + ([] if on else [name])
         save_session(sid, s)
         return block(status(cfg, s))
+    if m := MODEL_RE.match(prompt):
+        s["model_mode"] = m.group(1).lower()
+        save_session(sid, s)
+        return block(status(cfg, s))
     names = enabled(cfg, s)
     if not names or not should_route(prompt, s["mode"], cfg):
         return
+    harness = models.harness_of(data)
+    ctx = {"state_dir": STATE_DIR, "data": data, "prompt": prompt, "harness": harness,
+           "mcp_names": list(mcps.servers(harness, data.get("cwd")))}
     questions = {}
     for n in names:
-        questions.update(ROUTERS[n].questions(cfg[n], STATE_DIR))
+        questions.update(ROUTERS[n].questions(cfg[n], ctx))
     state = {"prompt": prompt, "project": Path(data.get("cwd") or ".").name}
     digest = hashlib.sha256(prompt.encode()).hexdigest()[:12]
     try:
@@ -149,14 +164,17 @@ def on_prompt(data, cfg):
             emit("UserPromptSubmit", "[jev-router] Router unavailable. If a specialised "
                  f"skill could help, pick one from {STATE_DIR / 'catalog.md'}.")
         return
-    lines, entry = [], {"event": "route", "prompt_sha": digest, "mode": s["mode"], **meta}
+    lines, entry = [], {"event": "route", "prompt_sha": digest, "mode": s["mode"],
+                        "harness": harness, **meta}
     for n in names:
-        line, detail = ROUTERS[n].route(cfg[n], answers, s, STATE_DIR)
+        line, detail = ROUTERS[n].route(cfg[n], answers, s, ctx)
         if line:
             lines.append(line)
         entry[n] = detail
     save_session(sid, s)
     log(entry)
+    if (entry.get("models") or {}).get("block"):
+        return block(entry["models"]["block"])
     if lines:
         emit("UserPromptSubmit", "[jev-router] " + " ".join(lines))
 

@@ -13,6 +13,8 @@ sys.path.insert(0, str(ROOT))
 os.environ["JEV_ROUTER_STATE"] = tempfile.mkdtemp()
 
 import jev  # noqa: E402
+import mcps  # noqa: E402
+import models  # noqa: E402
 import router  # noqa: E402
 import skills  # noqa: E402
 
@@ -21,8 +23,12 @@ def noul(p):
     return {"type": "noul", "noul": p}
 
 
-def fake_answers(cfg, skill="none", p=0.9, gates=None, tool_p=None):
-    a = {"skill": {"type": "choice", "choice": skill, "probabilities": {skill: p}, "confidence": p}}
+def fake_answers(cfg, skill="none", p=0.9, gates=None, tool_p=None, effort=2.0, mcp_p=None):
+    a = {"skill": {"type": "choice", "choice": skill, "probabilities": {skill: p}, "confidence": p},
+         "model:effort": {"type": "score", "score": effort},
+         "model:risk": noul(0.05), "model:context": noul(0.05)}
+    for n, v in (mcp_p or {"railway": 0.05}).items():
+        a[f"mcp:{n}"] = noul(v)
     for g in cfg["skills"]["gated"]:
         a[f"gate:{g}"] = noul((gates or {}).get(g, 0.05))
     for t in cfg["tools"]["groups"]:
@@ -40,10 +46,16 @@ class Base(unittest.TestCase):
         router.STATE_DIR = Path(tempfile.mkdtemp())
         self.patch = mock.patch.object(skills, "SKILLS_DIR", self.skills_dir)
         self.patch.start()
+        self.mcp = mock.patch.object(mcps, "servers", lambda h, cwd=None: {"railway": {}})
+        self.mcp.start()
+        self.cm = mock.patch.object(models, "claude_model", return_value=None)
+        self.cm.start()
         self.cfg = router.load_config()
 
     def tearDown(self):
         self.patch.stop()
+        self.mcp.stop()
+        self.cm.stop()
 
     def run_hook(self, fn, *args):
         buf = io.StringIO()
@@ -66,7 +78,8 @@ class TestSkills(Base):
 
     def test_low_confidence_pick_ignored(self):
         s = {"loaded": []}
-        line, _ = skills.route(self.cfg["skills"], fake_answers(self.cfg, "use-railway", 0.2), s, router.STATE_DIR)
+        line, _ = skills.route(self.cfg["skills"], fake_answers(self.cfg, "use-railway", 0.2), s,
+                               {"state_dir": router.STATE_DIR})
         self.assertEqual(s["loaded"], [])
         self.assertIn("No specialised skill", line)
 
@@ -100,23 +113,68 @@ class TestModes(Base):
 class TestPrompt(Base):
     def test_routes_and_dedupes(self):
         ans = fake_answers(self.cfg, "use-railway", 0.95, gates={"ponytail": 0.9},
-                           tool_p={"railway": 0.9, "figma": 0.01})
+                           tool_p={"web": 0.9}, mcp_p={"railway": 0.9})
         out, _ = self.prompt("s2", "deploy and fix the build", ans)
         ctx = out["hookSpecificOutput"]["additionalContext"]
         self.assertIn("`ponytail`", ctx)
         self.assertIn("`use-railway`", ctx)
-        self.assertIn("likely needed: railway", ctx)
-        self.assertIn("figma", ctx)
+        self.assertIn("Tools likely needed: web", ctx)
+        self.assertIn("MCP servers likely needed: railway", ctx)
         out, _ = self.prompt("s2", "deploy and fix the build", ans)
         ctx = out["hookSpecificOutput"]["additionalContext"]
         self.assertNotIn("Load skill", ctx)
         self.assertIn("Already active", ctx)
+
+    def test_notifications_are_not_routed(self):
+        self.assertFalse(router.should_route("<task-notification> done", "all", self.cfg))
 
     def test_failure_falls_back_once(self):
         with mock.patch.object(jev, "load_key", side_effect=jev.JevError("no key")):
             out = self.run_hook(router.on_prompt, {"session_id": "s3", "prompt": "fix the header bug now"}, self.cfg)
             self.assertIn("catalog.md", out[0]["hookSpecificOutput"]["additionalContext"])
             self.assertEqual(self.run_hook(router.on_prompt, {"session_id": "s3", "prompt": "fix the header bug now"}, self.cfg), [])
+
+
+class TestModels(Base):
+    def ctx(self, harness="claude", model="claude-opus-5-5"):
+        data = {"model": model} if harness == "codex" else {}
+        if harness == "codex":
+            data["transcript_path"] = "/x/.codex/sessions/a.jsonl"
+        return {"data": data, "prompt": "p", "harness": harness}
+
+    def test_tiers(self):
+        c = self.cfg["models"]
+        self.assertEqual(models.tier(c, fake_answers(self.cfg, effort=0.4))[0], "small")
+        self.assertEqual(models.tier(c, fake_answers(self.cfg, effort=3.8))[0], "hard")
+        risky = fake_answers(self.cfg, effort=0.4)
+        risky["model:risk"] = noul(0.9)
+        self.assertEqual(models.tier(c, risky)[0], "large")
+
+    def test_claude_ask_uses_selector_once_per_tier(self):
+        c, s = self.cfg["models"], {}
+        self.cm.stop()
+        with mock.patch.object(models, "claude_model", return_value="claude-opus-5-5"):
+            line, d = models.route(c, fake_answers(self.cfg, effort=0.4), s, self.ctx())
+            self.assertIn("AskUserQuestion", line)
+            self.assertIn("model 'haiku'", line)
+            line, _ = models.route(c, fake_answers(self.cfg, effort=0.4), s, self.ctx())
+            self.assertNotIn("AskUserQuestion", line)
+            line, _ = models.route(c, fake_answers(self.cfg, effort=3.8), s, self.ctx())
+            self.assertEqual(line, "")
+
+    def test_codex_ask_blocks_then_lets_resend_through(self):
+        c, s = self.cfg["models"], {}
+        _, d = models.route(c, fake_answers(self.cfg, effort=0.4), s, self.ctx("codex", "gpt-6-sol"))
+        self.assertIn("gpt-6-luna at low effort", d["block"])
+        s.pop("model_asked")
+        _, d = models.route(c, fake_answers(self.cfg, effort=0.4), s, self.ctx("codex", "gpt-6-sol"))
+        self.assertNotIn("block", d)
+
+    def test_upgrade_is_only_suggested(self):
+        self.cm.stop()
+        with mock.patch.object(models, "claude_model", return_value="claude-haiku-4-5"):
+            line, _ = models.route(self.cfg["models"], fake_answers(self.cfg, effort=3.8), {}, self.ctx())
+        self.assertIn("may do better", line)
 
 
 class TestSessionStart(Base):

@@ -14,6 +14,8 @@ from router import STATE_DIR, load_config  # noqa: E402
 SETTINGS = Path.home() / ".claude" / "settings.json"
 RECORD = STATE_DIR / "installed.json"
 ROUTER = str(HERE / "router.py")
+LAUNCHER = HERE / "launch.py"
+LINK = Path.home() / ".local" / "bin" / "jev"
 
 
 def hook(arg, timeout):
@@ -39,6 +41,8 @@ def main():
         for name in rec["added_overrides"]:
             overrides.pop(name, None)
         RECORD.unlink(missing_ok=True)
+        if LINK.is_symlink() and LINK.resolve() == LAUNCHER:
+            LINK.unlink()
         for event in ("SessionStart", "UserPromptSubmit"):
             if not hooks[event]:
                 del hooks[event]
@@ -56,6 +60,11 @@ def main():
                 rec["added_overrides"].append(sk["name"])
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         RECORD.write_text(json.dumps(rec, indent=1))
+        LINK.parent.mkdir(parents=True, exist_ok=True)
+        if not LINK.exists():
+            LINK.symlink_to(LAUNCHER)
+        elif not (LINK.is_symlink() and LINK.resolve() == LAUNCHER):
+            print(f"{LINK} exists and is not ours; launcher not linked")
     SETTINGS.write_text(json.dumps(s, indent=2) + "\n")
     print(("uninstalled" if uninstall else "installed") + f"; backup at {backup}")
 

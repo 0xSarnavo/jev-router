@@ -1,13 +1,13 @@
 """Tool router: tell the assistant which tool groups a prompt needs or can skip."""
 
 
-def questions(cfg, state_dir):
+def questions(cfg, ctx):
     return {f"tool:{g}": {"type": "noul",
                           "instructions": f"Will handling the request in `prompt` need {desc}?"}
             for g, desc in cfg["groups"].items()}
 
 
-def route(cfg, answers, session, state_dir):
+def route(cfg, answers, session, ctx):
     use, skip = [], []
     for g in cfg["groups"]:
         p = answers[f"tool:{g}"]["noul"]

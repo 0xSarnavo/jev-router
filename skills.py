@@ -52,10 +52,10 @@ def body(path):
     return re.sub(r"\A---\s*\n.*?\n---\s*\n", "", text, count=1, flags=re.S).strip()
 
 
-def questions(cfg, state_dir):
+def questions(cfg, ctx):
     skip = set(cfg["always_on"]) | set(cfg["gated"]) | set(cfg["never_route"])
     options = {s["name"]: s["desc"] or None
-               for s in load_catalog(state_dir)["skills"] if s["name"] not in skip}
+               for s in load_catalog(ctx["state_dir"])["skills"] if s["name"] not in skip}
     options["none"] = "No specialised skill fits. The assistant can answer or do this directly."
     q = {"skill": {"type": "choice", "criteria": options,
                    "instructions": "Which specialised skill, if any, clearly matches the request "
@@ -65,13 +65,13 @@ def questions(cfg, state_dir):
     return q
 
 
-def route(cfg, answers, session, state_dir):
+def route(cfg, answers, session, ctx):
     picks = [n for n in cfg["gated"] if answers[f"gate:{n}"]["noul"] >= cfg["gate_threshold"]]
     sk = answers["skill"]
     p = sk["probabilities"].get(sk["choice"], 0)
     if sk["choice"] != "none" and p >= cfg["pick_threshold"]:
         picks.append(sk["choice"])
-    known = paths(state_dir)
+    known = paths(ctx["state_dir"])
     new = [n for n in picks if n not in session["loaded"] and n in known]
     active = [n for n in picks if n in session["loaded"]]
     session["loaded"] += new
