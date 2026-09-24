@@ -43,5 +43,181 @@
   "tier_exact": 0.792,
   "tier_within_one": 0.938,
   "seconds": 86
+ },
+ "laya-base": {
+  "backend": "laya-base",
+  "n": 144,
+  "labels": {
+   "code": {
+    "accuracy": 0.868,
+    "recall_yes": 0.75,
+    "balanced": 0.839
+   },
+   "prose": {
+    "accuracy": 0.708,
+    "recall_yes": 0.583,
+    "balanced": 0.652
+   },
+   "history": {
+    "accuracy": 0.944,
+    "recall_yes": 0.417,
+    "balanced": 0.705
+   },
+   "railway": {
+    "accuracy": 0.833,
+    "recall_yes": 0.5,
+    "balanced": 0.682
+   },
+   "web": {
+    "accuracy": 0.903,
+    "recall_yes": 0.25,
+    "balanced": 0.606
+   },
+   "github": {
+    "accuracy": 0.847,
+    "recall_yes": 0.833,
+    "balanced": 0.841
+   },
+   "browser": {
+    "accuracy": 0.785,
+    "recall_yes": 0.75,
+    "balanced": 0.769
+   }
+  },
+  "balanced_mean": 0.728,
+  "tier_exact": 0.424,
+  "tier_within_one": 0.944
+ },
+ "laya-run1": {
+  "backend": "laya-run1",
+  "n": 144,
+  "labels": {
+   "code": {
+    "accuracy": 0.833,
+    "recall_yes": 0.75,
+    "balanced": 0.812
+   },
+   "prose": {
+    "accuracy": 0.931,
+    "recall_yes": 0.167,
+    "balanced": 0.583
+   },
+   "history": {
+    "accuracy": 0.917,
+    "recall_yes": 0.0,
+    "balanced": 0.5
+   },
+   "railway": {
+    "accuracy": 0.917,
+    "recall_yes": 0.0,
+    "balanced": 0.5
+   },
+   "web": {
+    "accuracy": 0.917,
+    "recall_yes": 0.0,
+    "balanced": 0.5
+   },
+   "github": {
+    "accuracy": 0.917,
+    "recall_yes": 0.0,
+    "balanced": 0.5
+   },
+   "browser": {
+    "accuracy": 0.917,
+    "recall_yes": 0.0,
+    "balanced": 0.5
+   }
+  },
+  "balanced_mean": 0.556,
+  "tier_exact": 0.257,
+  "tier_within_one": 0.958
+ },
+ "laya-run1-plus3": {
+  "backend": "laya-run1-plus3",
+  "n": 144,
+  "labels": {
+   "code": {
+    "accuracy": 0.861,
+    "recall_yes": 0.917,
+    "balanced": 0.875
+   },
+   "prose": {
+    "accuracy": 0.938,
+    "recall_yes": 0.25,
+    "balanced": 0.625
+   },
+   "history": {
+    "accuracy": 0.917,
+    "recall_yes": 0.0,
+    "balanced": 0.5
+   },
+   "railway": {
+    "accuracy": 0.917,
+    "recall_yes": 0.0,
+    "balanced": 0.5
+   },
+   "web": {
+    "accuracy": 0.917,
+    "recall_yes": 0.0,
+    "balanced": 0.5
+   },
+   "github": {
+    "accuracy": 0.917,
+    "recall_yes": 0.0,
+    "balanced": 0.5
+   },
+   "browser": {
+    "accuracy": 0.917,
+    "recall_yes": 0.0,
+    "balanced": 0.5
+   }
+  },
+  "balanced_mean": 0.571,
+  "tier_exact": 0.257,
+  "tier_within_one": 0.958
+ },
+ "laya-balanced": {
+  "backend": "laya-balanced",
+  "n": 144,
+  "labels": {
+   "code": {
+    "accuracy": 0.819,
+    "recall_yes": 0.979,
+    "balanced": 0.859
+   },
+   "prose": {
+    "accuracy": 0.917,
+    "recall_yes": 0.667,
+    "balanced": 0.803
+   },
+   "history": {
+    "accuracy": 0.938,
+    "recall_yes": 0.5,
+    "balanced": 0.739
+   },
+   "railway": {
+    "accuracy": 0.924,
+    "recall_yes": 0.333,
+    "balanced": 0.655
+   },
+   "web": {
+    "accuracy": 0.84,
+    "recall_yes": 0.583,
+    "balanced": 0.723
+   },
+   "github": {
+    "accuracy": 0.924,
+    "recall_yes": 0.75,
+    "balanced": 0.845
+   },
+   "browser": {
+    "accuracy": 0.938,
+    "recall_yes": 0.25,
+    "balanced": 0.625
+   }
+  },
+  "balanced_mean": 0.75,
+  "tier_exact": 0.292,
+  "tier_within_one": 0.958
  }
 }
